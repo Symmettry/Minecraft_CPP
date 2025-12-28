@@ -4,6 +4,7 @@
 #include <ranges>
 #include <unordered_map>
 #include "Chunk.hpp"
+#include "block/impl/AirBlock.hpp"
 #include "net/lily/minecpp/entity/Entity.hpp"
 
 struct ChunkCoord {
@@ -71,15 +72,12 @@ public:
         int localZ = worldZ % CHUNK_SIZE;
         if (localZ < 0) localZ += CHUNK_SIZE;
 
-        printf("%d %d %d %d\n", chunkX, chunkZ, localX, localZ);
-
         ChunkCoord coord{chunkX, chunkZ};
         auto it = chunks.find(coord);
-        if (it == chunks.end()) return nullptr; // don’t auto-create chunks
+        if (it == chunks.end()) return new AirBlock(worldX, worldY, worldZ);
 
         const Chunk& chunk = it->second;
         const std::unique_ptr<Block>& blockPtr = chunk.getBlock(localX, worldY, localZ);
         return blockPtr.get();
     }
-
 };

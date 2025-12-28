@@ -15,6 +15,14 @@ public:
 
     void onPlace() override {}
     void onBreak() override {}
+
+    [[nodiscard]] std::string getTextureName(const int face) const override {
+        switch (face) {
+            case 4: return "grass_top";
+            case 5: return "dirt";
+            default: return "grass_side";
+        }
+    }
 };
 
 

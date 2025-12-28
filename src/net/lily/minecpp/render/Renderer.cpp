@@ -223,7 +223,7 @@ void Renderer::render(const World* world) const {
     const glm::mat4 proj = glm::ortho(0.0f, static_cast<float>(fbWidth), static_cast<float>(fbHeight), 0.0f);
     fontShader->setMat4("projection", glm::value_ptr(proj));
 
-    mc->fontRenderer->renderText("Hello 1.8.9!", 50, 50, 2.0f, 0xFFFFFFFF, true);
+    mc->fontRenderer->renderText(mc->player->coordinates(), 50, 50, 2.0f, 0xFFFFFFFF, true);
 
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);

@@ -12,7 +12,9 @@ enum class Material {
     Air,
     Dirt,
     Grass,
-    Stone
+    Stone,
+    Obsidian,
+    Ice,
 };
 
 class Block {
@@ -20,7 +22,7 @@ public:
     virtual ~Block() = default;
 
     Material material;
-    glm::vec3 position;
+    glm::vec<3, int> position;
 
     Block() : material(Material::Air), position(0,0,0) {}
     Block(const int x, const int y, const int z) : material(Material::Air), position(x, y, z) {}
@@ -31,7 +33,7 @@ public:
     }
 
     [[nodiscard]] AABB getBoundingBox() const {
-        return AABB(minX(), minY(), minZ(), maxX(), maxY(), maxZ());
+        return {minX(), minY(), minZ(), maxX(), maxY(), maxZ()};
     }
 
     [[nodiscard]] double minX() const { return position.x; }
@@ -50,6 +52,7 @@ public:
     }
 
     [[nodiscard]] virtual std::string getName() const = 0;
+    [[nodiscard]] virtual std::string getTextureName(int face) const = 0;
 
     virtual void onPlace() {}
     virtual void onBreak() {}

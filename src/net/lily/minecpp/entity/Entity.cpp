@@ -388,7 +388,6 @@ void Entity::moveEntity(double dx, double dy, double dz) {
     resetPositionToBB();
     isCollidedHorizontally = d3 != dx || d5 != dz;
     isCollidedVertically = d4 != dy;
-    printf("%f %f\n", d4, dy);
     onGround = isCollidedVertically && d4 < 0.0;
     isCollided = isCollidedVertically || isCollidedHorizontally;
 

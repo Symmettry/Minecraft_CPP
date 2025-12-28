@@ -14,7 +14,7 @@ Chunk::Chunk(const int x, const int z)
     for (int by = 0; by < WORLD_HEIGHT; ++by)
         for (int bz = 0; bz < CHUNK_SIZE; ++bz)
             for (int bx = 0; bx < CHUNK_SIZE; ++bx)
-                blocks[index++] = BlockRegistry::createBlock(Material::Air, bx, by, bz);
+                blocks[index++] = BlockRegistry::createBlock(Material::Air, x + bx, by, z + bz);
 }
 
 Chunk::~Chunk() {
@@ -24,7 +24,7 @@ Chunk::~Chunk() {
 }
 
 void Chunk::setBlock(const int x, const int y, const int z, const Material type) {
-    blocks[index(x, y, z)] = BlockRegistry::createBlock(type, x, y, z);
+    blocks[index(x, y, z)] = BlockRegistry::createBlock(type, chunkX * CHUNK_SIZE + x, y, chunkZ * CHUNK_SIZE + z);
 }
 
 const std::unique_ptr<Block> &Chunk::getBlock(const int x, const int y, const int z) const {
@@ -81,7 +81,7 @@ void Chunk::generateMesh(const BlockAtlas* blockAtlas) {
                     }
                     if (isOpaque(nx, ny, nz)) continue;
 
-                    auto [uMin, vMin, uMax, vMax] = getTextureUV(blockAtlas, mat, f);
+                    auto [uMin, vMin, uMax, vMax] = getTextureUV(blockAtlas, block.get(), f);
                     const unsigned int startIndex = meshData.vertices.size() / 5;
 
                     for (int i = 0; i < 4; ++i) {
@@ -110,20 +110,8 @@ void Chunk::generateMesh(const BlockAtlas* blockAtlas) {
               << " Indices: " << meshData.indices.size() << "\n";
 }
 
-std::tuple<float,float,float,float> Chunk::getTextureUV(const BlockAtlas* blockAtlas, const Material material, const int face) {
-    std::string blockTex;
-    switch(material){
-        case Material::Grass:
-            if(face == 4) blockTex = "grass_top";
-            else if(face == 5) blockTex = "dirt";
-            else blockTex = "grass_side";
-            break;
-        case Material::Dirt: blockTex = "dirt"; break;
-        case Material::Stone: blockTex = "stone"; break;
-        default: blockTex = "missing"; break;
-    }
-
-    return blockAtlas->getBlockUV(blockTex);
+std::tuple<float,float,float,float> Chunk::getTextureUV(const BlockAtlas* blockAtlas, const Block* block, const int face) {
+    return blockAtlas->getBlockUV(block->getTextureName(face));
 }
 
 void Chunk::uploadMesh() {

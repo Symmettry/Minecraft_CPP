@@ -2,29 +2,33 @@
 // Created by lily on 12/27/25.
 //
 
-#ifndef MINECRAFTCLIENT_AIRBLOCK_HPP
-#define MINECRAFTCLIENT_AIRBLOCK_HPP
+#ifndef MINECRAFTCLIENT_ICEBLOCK_HPP
+#define MINECRAFTCLIENT_ICEBLOCK_HPP
 #include "net/lily/minecpp/world/block/Block.hpp"
 
-class AirBlock : public Block {
+class IceBlock : public Block {
 public:
-    AirBlock(const int x, const int y, const int z) : Block(x, y, z) {}
+    IceBlock(const int x, const int y, const int z) : Block(Material::Ice, x, y, z) {}
 
     [[nodiscard]] std::string getName() const override {
-        return "Air";
+        return "Ice";
     }
 
     [[nodiscard]] bool isOpaque() const override {
-        return false;
+        return true;
     }
 
     void onPlace() override {}
     void onBreak() override {}
 
     [[nodiscard]] std::string getTextureName(int face) const override {
-        return "dirt";
+        return "ice";
+    }
+
+    [[nodiscard]] float slipperiness() const override {
+        return 0.98f;
     }
 
 };
 
-#endif //MINECRAFTCLIENT_AIRBLOCK_HPP
+#endif

@@ -2,29 +2,28 @@
 // Created by lily on 12/27/25.
 //
 
-#ifndef MINECRAFTCLIENT_AIRBLOCK_HPP
-#define MINECRAFTCLIENT_AIRBLOCK_HPP
+#ifndef MINECRAFTCLIENT_STONEBLOCK_HPP
+#define MINECRAFTCLIENT_STONEBLOCK_HPP
 #include "net/lily/minecpp/world/block/Block.hpp"
 
-class AirBlock : public Block {
+class StoneBlock : public Block {
 public:
-    AirBlock(const int x, const int y, const int z) : Block(x, y, z) {}
+    StoneBlock(const int x, const int y, const int z) : Block(Material::Stone, x, y, z) {}
 
     [[nodiscard]] std::string getName() const override {
-        return "Air";
+        return "Stone";
     }
 
     [[nodiscard]] bool isOpaque() const override {
-        return false;
+        return true;
     }
 
     void onPlace() override {}
     void onBreak() override {}
 
     [[nodiscard]] std::string getTextureName(int face) const override {
-        return "dirt";
+        return "stone";
     }
-
 };
 
-#endif //MINECRAFTCLIENT_AIRBLOCK_HPP
+#endif //MINECRAFTCLIENT_STONEBLOCK_HPP

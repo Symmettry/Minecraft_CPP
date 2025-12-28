@@ -20,6 +20,10 @@ public:
 
     void onPlace() override {}
     void onBreak() override {}
+
+    [[nodiscard]] std::string getTextureName(int face) const override {
+        return "dirt";
+    }
 };
 
 

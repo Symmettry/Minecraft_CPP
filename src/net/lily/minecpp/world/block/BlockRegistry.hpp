@@ -8,6 +8,9 @@
 #include "impl/AirBlock.hpp"
 #include "impl/DirtBlock.hpp"
 #include "impl/GrassBlock.hpp"
+#include "impl/IceBlock.hpp"
+#include "impl/StoneBlock.hpp"
+#include "impl/ObsidianBlock.hpp"
 
 using BlockFactory = std::function<std::unique_ptr<Block>(int, int, int)>;
 
@@ -25,6 +28,9 @@ public:
         registerDefBlockHelper<GrassBlock>(Material::Grass);
         registerDefBlockHelper<DirtBlock>(Material::Dirt);
         registerDefBlockHelper<AirBlock>(Material::Air);
+        registerDefBlockHelper<StoneBlock>(Material::Stone);
+        registerDefBlockHelper<IceBlock>(Material::Ice);
+        registerDefBlockHelper<ObsidianBlock>(Material::Obsidian);
     }
 
     static void registerBlock(const Material mat, const BlockFactory &factory) {

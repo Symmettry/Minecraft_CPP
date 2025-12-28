@@ -29,7 +29,7 @@ public:
 
     void generateMesh(const BlockAtlas* blockAtlas);
 
-    static std::tuple<float, float, float, float> getTextureUV(const BlockAtlas *blockAtlas, Material material, int face);
+    static std::tuple<float, float, float, float> getTextureUV(const BlockAtlas *blockAtlas, const Block *block, int face);
 
     void uploadMesh(); // send data to GPU
 

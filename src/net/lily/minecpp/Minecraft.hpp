@@ -20,7 +20,7 @@ constexpr int width = 800, height = 800;
 struct Minecraft {
     Timer* timer = new Timer();
     World* world = new World();
-    std::shared_ptr<EntityPlayer> player = std::make_shared<EntityPlayer>(this, 0, 1, 0);
+    std::shared_ptr<EntityPlayer> player = std::make_shared<EntityPlayer>(this, 0.5, 1, 0.5);
 
     Camera* camera = new Camera(0, 0, 0, player);
     Renderer* renderer = new Renderer(this, camera, width, height);
@@ -46,13 +46,36 @@ struct Minecraft {
 
         for (int x=-16;x<16;x++) {
             for (int z=-16;z<16;z++) {
-                world->setBlockAt(x, 0, z, Material::Grass);
+                Material mat;
+
+                if (x == 0 || z == 0) {
+                    mat = Material::Stone; // cross in the middle
+                } else if (x > 0 && z > 0) {
+                    mat = Material::Grass; // top-right quadrant
+                } else if (x < 0 && z > 0) {
+                    mat = Material::Dirt; // top-left quadrant
+                } else if (x < 0) {
+                    mat = Material::Obsidian; // bottom-left quadrant
+                } else {
+                    mat = Material::Ice; // bottom-right quadrant
+                }
+
+                world->setBlockAt(x, 0, z, mat);
                 if ((x + z) % 2 == 0) {
-                    world->setBlockAt(x, 10, z, Material::Dirt);
+                    world->setBlockAt(x, 10, z, mat);
                 }
             }
         }
-        world->setBlockAt(5, 1, 5, Material::Grass);
+        world->setBlockAt(8, 1, 8, Material::Grass);
+        world->setBlockAt(8, 1, -8, Material::Ice);
+        world->setBlockAt(-8, 1, 8, Material::Dirt);
+        world->setBlockAt(-8, 1, -8, Material::Obsidian);
+
+        for (int i=0;i<10;i++) {
+            world->setBlockAt(3 + i, 1, 3, Material::Ice);
+            world->setBlockAt(3 + i, 1, 4, Material::Ice);
+        }
+
         for (auto &val: world->chunks | std::views::values) {
             val.generateMesh(renderer->blockAtlas);
             val.uploadMesh();

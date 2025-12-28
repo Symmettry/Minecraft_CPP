@@ -76,6 +76,10 @@ public:
     void setSprinting(bool sprint) { sprinting = sprint; }
     bool isSprinting() const { return sprinting; }
 
+    std::string coordinates() const {
+        return "X: " + std::to_string(position.x) + ", Y: " + std::to_string(position.y) + ", Z: " + std::to_string(position.z);
+    }
+
 protected:
     mutable AABB boundingBox{};
 };
