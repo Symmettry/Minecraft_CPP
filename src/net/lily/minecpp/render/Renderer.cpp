@@ -5,7 +5,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "BlockAtlas.hpp"
 #include "net/lily/minecpp/Minecraft.hpp"
+#define STB_IMAGE_IMPLEMENTATION
 #include "lib/stb_image.h"
 
 Renderer::~Renderer() {
@@ -102,9 +104,16 @@ void Renderer::init() {
 
     updateProjection(fbWidth, fbHeight);
 
-    blockTextureMap[BlockType::Grass] = loadTexture("assets/minecraft/textures/blocks/grass_top.png");
-    blockTextureMap[BlockType::Dirt]  = loadTexture("assets/minecraft/textures/blocks/dirt.png");
-    blockTextureMap[BlockType::Stone] = loadTexture("assets/minecraft/textures/blocks/stone.png");
+    const auto atlasPixels = blockAtlas->createAtlas("assets/minecraft/textures/blocks/");
+
+    constexpr int atlasSize = atlasTilesPerRow * atlasTileSize;
+    glGenTextures(1, &blockAtlasTexture);
+    glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, atlasSize, atlasSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, atlasPixels.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Renderer::processInput() const {
@@ -192,10 +201,11 @@ void Renderer::render(const World* world) const {
 
     glBindVertexArray(cubeVAO);
 
+    glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
     for (const auto& [fst, snd] : world->chunks) {
         const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(fst.x * CHUNK_SIZE, 0, fst.z * CHUNK_SIZE));
         blockShader->setMat4("model", glm::value_ptr(model));
-        snd.draw(blockTextureMap);
+        snd.draw();
     }
 
     glBindVertexArray(0);
@@ -213,7 +223,7 @@ void Renderer::render(const World* world) const {
     const glm::mat4 proj = glm::ortho(0.0f, static_cast<float>(fbWidth), static_cast<float>(fbHeight), 0.0f);
     fontShader->setMat4("projection", glm::value_ptr(proj));
 
-    mc->fontRenderer->renderText("Hello 1.8.9!", 50, 50, 2.0f, true);
+    mc->fontRenderer->renderText("Hello 1.8.9!", 50, 50, 2.0f, 0xFFFFFFFF, true);
 
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);

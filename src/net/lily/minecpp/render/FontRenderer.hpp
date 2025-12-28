@@ -8,15 +8,20 @@ public:
     FontRenderer(const std::string& texturePath, Shader* shader, int charWidth = 8, int charHeight = 8);
     ~FontRenderer();
 
-    void renderText(const std::string& text, float x, float y, float scale = 1.0f, bool shadow = false) const;
-
     Shader* shader;
-    GLuint textureID;
+    GLuint textureID{};
+
+    void renderText(const std::string &text, float x, float y, float scale = 1.0f, unsigned int color = 0xFFFFFFFF, bool shadow = false) const;
 
 private:
-    GLuint VAO, VBO;
+    GLuint VAO{}, VBO{};
     int charWidth, charHeight;
+
+    std::array<int, 256> glyphWidth{};
+    int atlasWidth{};
+    int atlasHeight{};
 
     void loadTexture(const std::string& path);
     void setupMesh();
+
 };

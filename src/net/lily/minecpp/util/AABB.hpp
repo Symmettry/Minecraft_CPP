@@ -2,14 +2,14 @@
 #define MINECRAFTCLIENT_AABB_HPP
 
 struct AABB {
-    float minX, minY, minZ;
-    float maxX, maxY, maxZ;
+    double minX, minY, minZ;
+    double maxX, maxY, maxZ;
 
-    [[nodiscard]] AABB offset(const float x, const float y, const float z) const {
+    [[nodiscard]] AABB offset(const double x, const double y, const double z) const {
         return {minX + x, minY + y, minZ + z, maxX + x, maxY + y, maxZ + z};
     }
 
-    [[nodiscard]] AABB expand(const float x, const float y, const float z) const {
+    [[nodiscard]] AABB expand(const double x, const double y, const double z) const {
         return {
             x < 0 ? minX + x : minX,
             y < 0 ? minY + y : minY,
@@ -26,9 +26,9 @@ struct AABB {
                maxZ > other.minZ && minZ < other.maxZ;
     }
 
-    [[nodiscard]] float calcWidth() const { return maxX - minX; }
-    [[nodiscard]] float calcHeight() const { return maxY - minY; }
-    [[nodiscard]] float calcDepth() const { return maxZ - minZ; }
+    [[nodiscard]] double calcWidth() const { return maxX - minX; }
+    [[nodiscard]] double calcHeight() const { return maxY - minY; }
+    [[nodiscard]] double calcDepth() const { return maxZ - minZ; }
 };
 
 #endif

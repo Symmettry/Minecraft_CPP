@@ -1,9 +1,10 @@
 #pragma once
 #ifndef ENTITY_HPP
+#define ENTITY_HPP
 
 #include <memory>
 #include <glm/glm.hpp>
-
+#include <algorithm>
 #include "net/lily/minecpp/util/AABB.hpp"
 #include "net/lily/minecpp/util/Rotation.hpp"
 
@@ -13,109 +14,74 @@ class Entity : public std::enable_shared_from_this<Entity> {
 public:
     const Minecraft* mc = nullptr;
 
-    explicit Entity(const Minecraft* mc, const float x, const float y, const float z) : mc(mc), position(x, y, z) {}
+    explicit Entity(const Minecraft* mc, double x, double y, double z);
     virtual ~Entity() = default;
 
-    float getEyePos() const {
-        return position.y + getEyeHeight();
-    }
-    float getLastEyePos() const {
-        return lastPos.y + getEyeHeight();
-    }
-
-    bool onGround = true, noClip = false, isInWeb = false, isAirBorne = false;
-    float fallDistance = 0.0f, jumpMovementFactor = 0.02f, stepHeight = 0.6f;
-
-    glm::vec3 position;
-    glm::vec3 lastPos{0,0,0};
-    glm::vec3 velocity{0,0,0};
-
+    // Update per tick
     virtual void update();
 
-    [[nodiscard]] virtual float getAIMoveSpeed() const {
-        return 1.0f;
-    }
+    // Eye position
+    double getEyePos() const;
+    double getLastEyePos() const;
 
-    [[nodiscard]] bool isOnLadder() const {
-        return false; // todo
-    }
-    [[nodiscard]] bool isInLava() const {
-        return false; // todo
-    }
-    [[nodiscard]] bool isInWater() const {
-        return false; // todo
-    }
+    // Movement
+    virtual void moveEntityWithHeading(double strafe, double forward);
+    void moveFlying(double strafe, double forward, double friction);
+    virtual void moveEntity(double dx, double dy, double dz);
+    void resetPositionToBB() const;
 
-    void setSneaking(const bool sneak) {
-        sneaking = sneak;
-    }
-    bool isSneaking() const {
-        return sneaking;
-    }
-    void setSprinting(const bool sprint) {
-        sprinting = sprint;
-    }
-    bool isSprinting() const {
-        return sprinting;
-    }
+    // Jump / living update
+    void jump();
+    void onLivingUpdate();
 
-    virtual void moveEntityWithHeading(float strafe, float forward);
+    // Bounding box
+    AABB getBoundingBox() const;
+    void setPosition(double x, double y, double z) const;
 
-    void resetPositionToBB() {
-        position.x = (boundingBox.maxX - boundingBox.minX)/2 + boundingBox.minX;
-        position.y = (boundingBox.maxY - boundingBox.minY)/2 + boundingBox.minY;
-        position.z = (boundingBox.maxZ - boundingBox.minZ)/2 + boundingBox.minZ;
-    }
+    // State
+    bool onGround = true, noClip = false, isInWeb = false, isAirBorne = false;
+    float fallDistance = 0.0f, jumpMovementFactor = 0.02f, stepHeight = 0.6f;
+    float width = 0.6f, height = 1.8f;
 
-    virtual void moveEntity(float dx, float dy, float dz);
+    mutable glm::vec<3, double> position{0,0,0};
+    mutable glm::vec<3, double> lastPos{0,0,0};
+    mutable glm::vec<3, double> velocity{0,0,0};
 
-    void moveFlying(float strafe, float forward, float friction);
+    // Rotation
+    Rotation rotation{0.0, 0.0};
+    Rotation lastRot{0.0, 0.0};
 
-    virtual float getEyeHeight() const;
-    virtual float jumpHeight() const;
+    bool isCollidedHorizontally = false;
+    bool isCollidedVertically = false;
+    bool isCollided = false;
 
+    // Jumping
     int jumpTicks = 0;
     bool isJumping = false;
 
-    void jump();
+    // Movement input
+    double moveForward = 0.0;
+    double moveStrafe = 0.0;
+    bool sneaking = false;
+    bool sprinting = false;
 
-    void onLivingUpdate();
+    // Virtual overrides
+    [[nodiscard]] virtual float getAIMoveSpeed() const { return 1.0f; }
+    [[nodiscard]] virtual double getEyeHeight() const { return 1.62; }
+    [[nodiscard]] virtual float jumpHeight() const { return 0.42f; }
 
-    Rotation rotation{0, 0};
-    Rotation lastRot{0, 0};
+    [[nodiscard]] virtual bool isOnLadder() const { return false; }
+    [[nodiscard]] virtual bool isInLava() const { return false; }
+    [[nodiscard]] virtual bool isInWater() const { return false; }
 
-    float width{}, height{};
-    bool isCollidedHorizontally{}, isCollidedVertically{};
+    void setSneaking(bool sneak) { sneaking = sneak; }
+    bool isSneaking() const { return sneaking; }
 
-    AABB getBoundingBox() {
-        boundingBox.minX = position.x - width/2;
-        boundingBox.minY = position.y;
-        boundingBox.minZ = position.z - width/2;
-        boundingBox.maxX = position.x + width/2;
-        boundingBox.maxY = position.y + height;
-        boundingBox.maxZ = position.z + width/2;
-        return boundingBox;
-    }
-
-    void setPosition(const float x, const float y, const float z) {
-        position.x = x;
-        position.y = y;
-        position.z = z;
-        lastPos.x = x;
-        lastPos.y = y;
-        lastPos.z = z;
-    }
+    void setSprinting(bool sprint) { sprinting = sprint; }
+    bool isSprinting() const { return sprinting; }
 
 protected:
-
-    void applyFrictionAndGravity();
-    float moveForward{}, moveStrafe{};
-
-private:
-    /** private because this should never be used without getBoundingBox() */
-    AABB boundingBox{};
-
-    bool sneaking = false, sprinting = false;
+    mutable AABB boundingBox{};
 };
 
 #endif

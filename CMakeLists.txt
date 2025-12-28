@@ -14,6 +14,9 @@ if(OPENGL_FOUND)
     target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL)
 endif()
 
+find_package(ZLIB REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE ZLIB::ZLIB)
+
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 if(GLFW_FOUND)

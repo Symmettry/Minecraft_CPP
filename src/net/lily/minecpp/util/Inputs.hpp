@@ -1,3 +1,5 @@
+#define FLOAT static_cast<float>
+
 #ifndef MINECRAFTCLIENT_INPUTS_H
 #define MINECRAFTCLIENT_INPUTS_H
 
@@ -24,8 +26,8 @@ struct Input {
         double mouseX, mouseY;
         glfwGetCursorPos(window, &mouseX, &mouseY);
 
-        mouseDeltaX = mouseX - centerX;
-        mouseDeltaY = mouseY - centerY;
+        mouseDeltaX = FLOAT(mouseX - centerX);
+        mouseDeltaY = FLOAT(mouseY - centerY);
 
         glfwSetCursorPos(window, centerX, centerY);
     }

@@ -9,8 +9,8 @@ void World::update() const {
     }
 }
 
-std::vector<Block> World::getCollidingBlocks(const AABB &box) const {
-    std::vector<Block> collisions;
+std::vector<const Block *> World::getCollidingBlocks(const AABB &box) const {
+    std::vector<const Block*> collisions;
 
     const int minX = INT(std::floor(box.minX));
     const int maxX = INT(std::floor(box.maxX));
@@ -33,10 +33,10 @@ std::vector<Block> World::getCollidingBlocks(const AABB &box) const {
                 if (!chunks.contains(coord)) continue;
                 const Chunk& chunk = chunks.at(coord);
 
-                const Block type = chunk.getBlock(localX, y, localZ);
-                if (!type.isOpaque()) continue;
+                const std::unique_ptr<Block>& type = chunk.getBlock(localX, y, localZ);
+                if (!type->isOpaque()) continue;
 
-                collisions.push_back(type);
+                collisions.push_back(type.get());
             }
         }
     }

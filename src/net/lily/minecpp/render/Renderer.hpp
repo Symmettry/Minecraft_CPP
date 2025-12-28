@@ -3,16 +3,19 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "BlockAtlas.hpp"
 #include "Camera.hpp"
 #include "../world/World.hpp"
 #include "Shader.hpp"
 
 class Renderer {
 public:
-    std::unordered_map<BlockType, unsigned int> blockTextureMap;
+    GLuint blockAtlasTexture{}; // single atlas texture
+    Shader* blockShader{};
+
+    BlockAtlas* blockAtlas = new BlockAtlas();
 
     unsigned int cubeVAO{}, cubeVBO{};
-    Shader* blockShader{};
 
     Renderer(Minecraft* mc, Camera* camera, const int w, const int h) : window(nullptr), camera(camera), mc(mc), width(w), height(h) {}
     ~Renderer();

@@ -3,6 +3,12 @@
 #include <cmath>
 
 void EntityPlayer::update() {
+
+    // fallback for falling out of the world
+    if (position.y < -10) {
+        setPosition(0, 1, 0);
+    }
+
     lastPos = position;
     lastRot = rotation;
 
@@ -11,14 +17,9 @@ void EntityPlayer::update() {
     handleSprintToggle();
 
     onLivingUpdate();
-
-    // fallback for falling out of the world
-    if (position.y < -10) {
-        setPosition(0, 1, 0);
-    }
 }
 
-void EntityPlayer::moveEntityWithHeading(float strafe, float forward) {
+void EntityPlayer::moveEntityWithHeading(double strafe, double forward) {
     //todo
     // const glm::vec3 prevPos = position;
 

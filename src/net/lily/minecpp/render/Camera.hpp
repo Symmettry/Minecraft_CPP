@@ -18,7 +18,7 @@ struct Camera {
         return x + std::lerp(entity->lastPos.x, entity->position.x, pt);
     }
     [[nodiscard]] float getY(const float pt) const {
-        return y + std::lerp(entity->getLastEyePos(), entity->getEyePos(), pt) + 0.5F;
+        return y + std::lerp(entity->getLastEyePos(), entity->getEyePos(), pt) + 0.5f;
     }
     [[nodiscard]] float getZ(const float pt) const {
         return z + std::lerp(entity->lastPos.z, entity->position.z, pt);

@@ -9,9 +9,11 @@
 #include <chrono>
 #include <thread>
 
+#include "net/NetClient.hpp"
 #include "render/FontRenderer.hpp"
 #include "util/GameSettings.hpp"
 #include "util/Inputs.hpp"
+#include "world/block/BlockRegistry.hpp"
 
 constexpr int width = 800, height = 800;
 
@@ -25,10 +27,14 @@ struct Minecraft {
     GameSettings* settings;
     Input* input;
     FontRenderer* fontRenderer;
+    NetClient* netClient = nullptr;
 
     bool running = true;
 
-    Minecraft() {
+    explicit Minecraft(const std::string& serverIp = "", uint16_t serverPort = 25565) {
+
+        BlockRegistry::initialize();
+
         renderer->init();
         input = new Input(renderer->window);
         settings = new GameSettings(renderer->window);
@@ -40,15 +46,21 @@ struct Minecraft {
 
         for (int x=-10;x<10;x++) {
             for (int z=-10;z<10;z++) {
-                world->setBlockAt(x, 0, z, BlockType::Grass);
+                world->setBlockAt(x, 0, z, Material::Grass);
                 if ((x + z) % 2 == 0) {
-                    world->setBlockAt(x, 10, z, BlockType::Dirt);
+                    world->setBlockAt(x, 10, z, Material::Dirt);
                 }
             }
         }
+        world->setBlockAt(5, 1, 5, Material::Grass);
         for (auto &val: world->chunks | std::views::values) {
-            val.generateMesh();
+            val.generateMesh(renderer->blockAtlas);
             val.uploadMesh();
+        }
+
+        if (!serverIp.empty()) {
+            netClient = new NetClient(serverIp, serverPort, player->username);
+            netClient->connect();
         }
 
         running = true;
@@ -58,15 +70,15 @@ struct Minecraft {
         tickThread.join();
     }
 
-
     ~Minecraft() {
         running = false;
         delete settings;
+        delete input;
+        delete netClient;
     }
 
     void runTickLoop() const {
         using clock = std::chrono::high_resolution_clock;
-
         timer->lastTick = clock::now();
 
         while (running && !renderer->shouldClose()) {
@@ -81,24 +93,28 @@ struct Minecraft {
         }
     }
 
-
     void runRenderLoop() const {
         using clock = std::chrono::high_resolution_clock;
-        constexpr double targetFPS = 60.0;
-        const auto frameDuration = std::chrono::duration<double>(1.0 / targetFPS);
 
-        auto lastFrameTime = clock::now();
+        int frames = 0;
+        auto lastFpsTime = clock::now();
 
         while (running && !renderer->shouldClose()) {
-            if (const auto now = clock::now(); now - lastFrameTime >= frameDuration) {
-                lastFrameTime = now;
-                timer->calculatePartialTicks(now);
-                render();
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            auto now = clock::now();
+
+            timer->calculatePartialTicks(now);
+            render();
+            frames++;
+
+            // Calculate FPS every second
+            if (now - lastFpsTime >= std::chrono::seconds(1)) {
+                std::cout << "FPS: " << frames << std::endl;
+                frames = 0;
+                lastFpsTime = now;
             }
         }
     }
+
 
     void render() const {
         renderer->render(world);
@@ -107,6 +123,10 @@ struct Minecraft {
     void runTick() const {
         input->updateMouse();
         world->update();
+
+        if (netClient) {
+            netClient->tick();
+        }
     }
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
-#include <glad/glad.h>
+#include "glad/glad.h"
+#include <glm/glm.hpp>
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -52,12 +53,16 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, mat);
     }
 
+    void setVec4(const std::string& name, const glm::vec4 vec) const {
+        glUniform4fv(glGetUniformLocation(ID, name.c_str()), 1, &vec[0]);
+    }
+
     void setInt(const char * str, const int i) const {
         glUniform1i(glGetUniformLocation(ID, str), i);
     }
 
 private:
-    static void checkCompileErrors(unsigned int shader, const std::string& type) {
+    static void checkCompileErrors(const unsigned int shader, const std::string& type) {
         int success;
         char infoLog[1024];
         if (type != "PROGRAM") {

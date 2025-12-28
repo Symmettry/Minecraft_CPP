@@ -1,5 +1,12 @@
+#define FLOAT static_cast<float>
+#define LONG static_cast<long>
+
 #include "Chunk.hpp"
 #include <iostream>
+#include <memory>
+
+#include "block/BlockRegistry.hpp"
+#include "net/lily/minecpp/render/BlockAtlas.hpp"
 
 Chunk::Chunk(const int x, const int z)
     : chunkX(x), chunkZ(z) {
@@ -7,7 +14,7 @@ Chunk::Chunk(const int x, const int z)
     for (int by = 0; by < WORLD_HEIGHT; ++by)
         for (int bz = 0; bz < CHUNK_SIZE; ++bz)
             for (int bx = 0; bx < CHUNK_SIZE; ++bx)
-                blocks[index++] = Block(bx, by, bz);
+                blocks[index++] = BlockRegistry::createBlock(Material::Air, bx, by, bz);
 }
 
 Chunk::~Chunk() {
@@ -16,89 +23,107 @@ Chunk::~Chunk() {
     if (EBO) glDeleteBuffers(1, &EBO);
 }
 
-void Chunk::setBlock(int x, int y, int z, BlockType type) {
-    blocks[index(x, y, z)].type = type;
+void Chunk::setBlock(const int x, const int y, const int z, const Material type) {
+    blocks[index(x, y, z)] = BlockRegistry::createBlock(type, x, y, z);
 }
 
-Block *Chunk::getBlock(int x, int y, int z) { return &blocks[index(x, y, z)]; }
-const Block& Chunk::getBlock(int x, int y, int z) const { return blocks[index(x, y, z)]; }
-
-bool Chunk::isOpaque(int nx, int ny, int nz) const {
-    if (nx < 0 || ny < 0 || nz < 0 || nx >= CHUNK_SIZE || ny >= CHUNK_SIZE || nz >= CHUNK_SIZE)
-        return false; // assume empty outside chunk
-    return getBlock(nx, ny, nz).isOpaque();
+const std::unique_ptr<Block> &Chunk::getBlock(const int x, const int y, const int z) const {
+    return blocks[index(x, y, z)];
 }
 
-void Chunk::generateMesh() {
+bool Chunk::isOpaque(const int nx, const int ny, const int nz) const {
+    if (nx < 0 || ny < 0 || nz < 0 || nx >= CHUNK_SIZE || ny >= WORLD_HEIGHT || nz >= CHUNK_SIZE)
+        return false;
+    return getBlock(nx, ny, nz)->isOpaque();
+}
+void Chunk::generateMesh(const BlockAtlas* blockAtlas) {
     meshData.vertices.clear();
     meshData.indices.clear();
 
-    // Cube vertices local positions
+    // Cube vertex positions
     constexpr float VERTS[8][3] = {
-        {0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1},
-        {0, 1, 0}, {1, 1, 0}, {1, 1, 1}, {0, 1, 1}
+        {0,0,0},{1,0,0},{1,0,1},{0,0,1},
+        {0,1,0},{1,1,0},{1,1,1},{0,1,1}
     };
 
-    // Faces: two triangles per face, 6 vertices
-    constexpr unsigned int FACES[6][6] = {
-        {7,6,2,2,3,7}, // front (+Z)
-        {5,4,0,0,1,5}, // back (-Z)
-        {4,7,3,3,0,4}, // left (-X)
-        {6,5,1,1,2,6}, // right (+X)
-        {4,5,6,6,7,4}, // top (+Y)
-        {3,2,1,1,0,3}  // bottom (-Y)
+    // Each face as 4 vertices (quad)
+    constexpr unsigned int FACE_VERTS[6][4] = {
+        {3,2,6,7}, // front (+Z)
+        {1,0,4,5}, // back (-Z)
+        {0,3,7,4}, // left (-X)
+        {2,1,5,6}, // right (+X)
+        {4,7,6,5}, // top (+Y)
+        {0,1,2,3}  // bottom (-Y)
     };
 
-    // UVs per face vertex (two triangles)
-    constexpr float FACE_UVS[6][2] = {
-        {0.0f,0.0f},{1.0f,0.0f},{1.0f,1.0f},
-        {1.0f,1.0f},{0.0f,1.0f},{0.0f,0.0f}
-    };
-
-    auto isOpaque = [&](int nx, int ny, int nz) -> bool {
-        if (nx < 0 || ny < 0 || nz < 0 || nx >= CHUNK_SIZE || ny >= CHUNK_SIZE || nz >= CHUNK_SIZE)
-            return false; // assume empty outside chunk
-        return getBlock(nx, ny, nz)->isOpaque();
+    // Each face as two triangles (indices relative to face quad)
+    constexpr unsigned int TRIANGLES[2][3] = {
+        {0,1,2}, {2,3,0}
     };
 
     for (int x = 0; x < CHUNK_SIZE; ++x) {
-        for (int y = 0; y < CHUNK_SIZE; ++y) {
+        for (int y = 0; y < WORLD_HEIGHT; ++y) {
             for (int z = 0; z < CHUNK_SIZE; ++z) {
-                if (const Block* block = getBlock(x, y, z); !block->isOpaque()) continue;
+                const auto &block = getBlock(x, y, z);
+                if (!block || !block->isOpaque()) continue;
+                const Material mat = block->material;
+                printf("Material %d name %s\n", static_cast<int>(mat), block->getName().c_str());
 
                 for (int f = 0; f < 6; ++f) {
-                    bool push = false;
-                    switch(f) {
-                        case 0: push = !isOpaque(x, y, z+1); break; // front
-                        case 1: push = !isOpaque(x, y, z-1); break; // back
-                        case 2: push = !isOpaque(x-1, y, z); break; // left
-                        case 3: push = !isOpaque(x+1, y, z); break; // right
-                        case 4: push = !isOpaque(x, y+1, z); break; // top
-                        case 5: push = !isOpaque(x, y-1, z); break; // bottom
+                    int nx = x, ny = y, nz = z;
+                    switch(f){
+                        case 0: nz += 1; break;
+                        case 1: nz -= 1; break;
+                        case 2: nx -= 1; break;
+                        case 3: nx += 1; break;
+                        case 4: ny += 1; break;
+                        case 5: ny -= 1; break;
                     }
-                    if (!push) continue;
+                    if (isOpaque(nx, ny, nz)) continue;
 
-                    const unsigned int faceOffset = meshData.vertices.size() / 5; // 5 floats per vertex
+                    auto [uMin, vMin, uMax, vMax] = getTextureUV(blockAtlas, mat, f);
+                    const unsigned int startIndex = meshData.vertices.size() / 5;
 
-                    // Add 6 vertices per face
-                    for (int vi = 0; vi < 6; ++vi) {
-                        unsigned int vert = FACES[f][vi];
-                        meshData.vertices.push_back(VERTS[vert][0] + x);
-                        meshData.vertices.push_back(VERTS[vert][1] + y);
-                        meshData.vertices.push_back(VERTS[vert][2] + z);
-                        meshData.vertices.push_back(FACE_UVS[vi][0]);
-                        meshData.vertices.push_back(FACE_UVS[vi][1]);
+                    for (int i = 0; i < 4; ++i) {
+                        const unsigned int vi = FACE_VERTS[f][i];
+                        meshData.vertices.push_back(VERTS[vi][0] + static_cast<float>(x));
+                        meshData.vertices.push_back(VERTS[vi][1] + static_cast<float>(y));
+                        meshData.vertices.push_back(VERTS[vi][2] + static_cast<float>(z));
+
+                        const float u = (i == 0 || i == 3) ? uMax : uMin;
+                        const float v = (i == 0 || i == 1) ? vMax : vMin;
+                        meshData.vertices.push_back(u);
+                        meshData.vertices.push_back(v);
                     }
 
-                    // Add indices
-                    for (int i = 0; i < 6; ++i)
-                        meshData.indices.push_back(faceOffset + i);
+                    for (const auto t : TRIANGLES) {
+                        for (int k = 0; k < 3; ++k) {
+                            meshData.indices.push_back(startIndex + t[k]);
+                        }
+                    }
                 }
             }
         }
     }
 
-    std::cout << "Vertices: " << meshData.vertices.size() << " Indices: " << meshData.indices.size() << "\n";
+    std::cout << "Vertices: " << meshData.vertices.size()
+              << " Indices: " << meshData.indices.size() << "\n";
+}
+
+std::tuple<float,float,float,float> Chunk::getTextureUV(const BlockAtlas* blockAtlas, const Material material, const int face) {
+    std::string blockTex;
+    switch(material){
+        case Material::Grass:
+            if(face == 4) blockTex = "grass_top";
+            else if(face == 5) blockTex = "dirt";
+            else blockTex = "grass_side";
+            break;
+        case Material::Dirt: blockTex = "dirt"; break;
+        case Material::Stone: blockTex = "stone"; break;
+        default: blockTex = "missing"; break;
+    }
+
+    return blockAtlas->getBlockUV(blockTex);
 }
 
 void Chunk::uploadMesh() {
@@ -109,10 +134,10 @@ void Chunk::uploadMesh() {
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, meshData.vertices.size() * sizeof(float), meshData.vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, LONG(meshData.vertices.size()) * sizeof(float), meshData.vertices.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshData.indices.size() * sizeof(unsigned int), meshData.indices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, LONG(meshData.indices.size()) * sizeof(unsigned int), meshData.indices.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
@@ -122,11 +147,10 @@ void Chunk::uploadMesh() {
     glBindVertexArray(0);
 }
 
-void Chunk::draw(const std::unordered_map<BlockType, unsigned int> &blockTextureMap) const {
+void Chunk::draw() const {
     if (meshData.indices.empty()) return;
 
     glBindVertexArray(VAO);
-    glBindTexture(GL_TEXTURE_2D, blockTextureMap.at(BlockType::Dirt));
-    glDrawElements(GL_TRIANGLES, meshData.indices.size(), GL_UNSIGNED_INT, nullptr);
+    glDrawElements(GL_TRIANGLES, LONG(meshData.indices.size()), GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
 }

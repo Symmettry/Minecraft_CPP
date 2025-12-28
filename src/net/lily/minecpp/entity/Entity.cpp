@@ -1,228 +1,39 @@
 #include "Entity.hpp"
 #include "net/lily/minecpp/Minecraft.hpp"
 #include <cmath>
-#include <algorithm>
+
+Entity::Entity(const Minecraft* mc, double x, double y, double z)
+    : mc(mc), position(x, y, z), lastPos(x, y, z) {}
+
+double Entity::getEyePos() const {
+    return position.y + getEyeHeight();
+}
+
+double Entity::getLastEyePos() const {
+    return lastPos.y + getEyeHeight();
+}
 
 void Entity::update() {
     lastPos = position;
     lastRot = rotation;
-
     onLivingUpdate();
 }
 
-void Entity::moveEntityWithHeading(const float strafe, const float forward) {
-
-    // --- Determine friction ---
-    float f4 = 0.91f;
-    if (onGround) {
-        Block* below = mc->world->getBlockAt(
-            std::floor(position.x),
-            std::floor(getBoundingBox().minY - 1.0f),
-            std::floor(position.z)
-        );
-        f4 = below->slipperiness() * 0.91f;
-    }
-
-    // --- Determine move factor ---
-    float moveFactor = onGround ? getAIMoveSpeed() * (0.16277136f / (f4 * f4 * f4)) : jumpMovementFactor;
-
-    // --- Apply sprinting ---
-    if (isSprinting()) moveFactor *= 1.3f; // Vanilla sprint multiplier
-
-    // --- Apply movement input ---
-    moveFlying(strafe, forward, moveFactor);
-
-    // --- Ladder handling ---
-    if (isOnLadder()) {
-        constexpr float ladderClamp = 0.15f;
-        velocity.x = std::clamp(velocity.x, -ladderClamp, ladderClamp);
-        velocity.z = std::clamp(velocity.z, -ladderClamp, ladderClamp);
-        if (velocity.y < -ladderClamp) velocity.y = -ladderClamp;
-        if (isSneaking() && velocity.y < 0.0f) velocity.y = 0.0f;
-        fallDistance = 0.0f;
-    }
-
-    // --- Move entity via collisions ---
-    moveEntity(velocity.x, velocity.y, velocity.z);
-
-    // --- Ladder vertical boost if stuck ---
-    if (isCollidedHorizontally && isOnLadder()) velocity.y = 0.2f;
-
-    // --- Liquid handling ---
-    if (isInWater() || isInLava()) {
-        constexpr float liquidFactor = 0.5f;
-        moveFlying(strafe, forward, 0.02f);
-        moveEntity(velocity.x, velocity.y, velocity.z);
-        velocity *= liquidFactor;
-        velocity.y -= 0.02f; // buoyancy
-    }
-
-    // --- Gravity & friction ---
-    if (!isInWater() && !isInLava()) {
-        constexpr float gravity = 0.08f;
-        constexpr float dragY = 0.98f;
-        velocity.y -= gravity;
-        velocity.x *= f4;
-        velocity.z *= f4;
-        velocity.y *= dragY;
-    }
-}
-
-void Entity::moveFlying(float strafe, float forward, float friction) {
-    float f = strafe*strafe + forward*forward;
-    if (f < 1e-4f) return;
-
-    f = std::sqrt(f);
-    if (f < 1.0f) f = 1.0f;
-    f = friction / f;
-
-    strafe *= f;
-    forward *= f;
-
-    const float yawRad = rotation.yaw * static_cast<float>(M_PI) / 180.0f;
-    const float sinYaw = std::sin(yawRad);
-    const float cosYaw = std::cos(yawRad);
-
-    velocity.x += forward * cosYaw - strafe * sinYaw;
-    velocity.z += forward * sinYaw + strafe * cosYaw;
-}
-
-void Entity::moveEntity(float dx, float dy, float dz) {
-    if (noClip) {
-        boundingBox = boundingBox.offset(dx, dy, dz);
-        resetPositionToBB();
-        return;
-    }
-
-    const AABB originalBox = boundingBox;
-
-    float x = dx, y = dy, z = dz;
-
-    if (isInWeb) {
-        isInWeb = false;
-        x *= 0.25f;
-        y *= 0.05f;
-        z *= 0.25f;
-        velocity = glm::vec3(0.0f);
-    }
-
-    if (onGround && isSneaking() && dynamic_cast<EntityPlayer*>(this)) {
-        constexpr float step = 0.05f;
-        while (x != 0.0f && mc->world->getCollidingBlocks(boundingBox.offset(x, -1.0f, 0.0f)).empty()) {
-            if (std::abs(x) < step) { x = 0.0f; break; }
-            x += (x > 0 ? -step : step);
-        }
-        while (z != 0.0f && mc->world->getCollidingBlocks(boundingBox.offset(0.0f, -1.0f, z)).empty()) {
-            if (std::abs(z) < step) { z = 0.0f; break; }
-            z += (z > 0 ? -step : step);
-        }
-        while (x != 0.0f && z != 0.0f && mc->world->getCollidingBlocks(boundingBox.offset(x, -1.0f, z)).empty()) {
-            if (std::abs(x) < step) { x = 0.0f; } else x += (x > 0 ? -step : step);
-            if (std::abs(z) < step) { z = 0.0f; } else z += (z > 0 ? -step : step);
-        }
-    }
-
-    // Gather collisions against the original bounding box
-    auto collisions = mc->world->getCollidingBlocks(originalBox.offset(x, y, z));
-
-    float moveX = x, moveY = y, moveZ = z;
-
-    // Y-axis sweep
-    for (auto &block : collisions) if (block.isOpaque())
-        moveY = (moveY > 0 ? std::min(moveY, block.minY() - originalBox.maxY)
-                            : std::max(moveY, block.maxY() - originalBox.minY));
-    boundingBox = originalBox.offset(0.0f, moveY, 0.0f);
-
-    // Recalculate collisions for X
-    collisions = mc->world->getCollidingBlocks(boundingBox.offset(x, 0.0f, 0.0f));
-    for (auto &block : collisions) if (block.isOpaque())
-        moveX = (moveX > 0 ? std::min(moveX, block.minX() - boundingBox.maxX)
-                            : std::max(moveX, block.maxX() - boundingBox.minX));
-    boundingBox = boundingBox.offset(moveX, 0.0f, 0.0f);
-
-    // Recalculate collisions for Z
-    collisions = mc->world->getCollidingBlocks(boundingBox.offset(0.0f, 0.0f, z));
-    for (auto &block : collisions) if (block.isOpaque())
-        moveZ = (moveZ > 0 ? std::min(moveZ, block.minZ() - boundingBox.maxZ)
-                            : std::max(moveZ, block.maxZ() - boundingBox.minZ));
-    boundingBox = boundingBox.offset(0.0f, 0.0f, moveZ);
-
-    // Step handling
-    if (stepHeight > 0.0f && onGround && (x != moveX || z != moveZ)) {
-        AABB stepBox = originalBox.offset(x, stepHeight, z);
-        auto stepCollisions = mc->world->getCollidingBlocks(stepBox);
-        float stepY = stepHeight;
-        for (auto &block : stepCollisions) if (block.isOpaque())
-            stepY = std::min(stepY, block.minY() - originalBox.maxY);
-
-        stepBox = originalBox.offset(x, stepY, z);
-        float stepX = x, stepZ = z;
-        for (auto &block : stepCollisions) if (block.isOpaque()) {
-            stepX = (stepX > 0 ? std::min(stepX, block.minX() - stepBox.maxX)
-                                : std::max(stepX, block.maxX() - stepBox.minX));
-            stepZ = (stepZ > 0 ? std::min(stepZ, block.minZ() - stepBox.maxZ)
-                                : std::max(stepZ, block.maxZ() - stepBox.minZ));
-        }
-
-        float distOriginal = moveX*moveX + moveZ*moveZ;
-        float distStep = stepX*stepX + stepZ*stepZ;
-        if (distStep > distOriginal) {
-            moveX = stepX;
-            moveY = stepY;
-            moveZ = stepZ;
-            boundingBox = originalBox.offset(moveX, moveY, moveZ);
-        }
-    }
-
-    // Final position
-    position = glm::vec3(
-        (boundingBox.minX + boundingBox.maxX) / 2.0f,
-        boundingBox.minY,
-        (boundingBox.minZ + boundingBox.maxZ) / 2.0f
-    );
-
-    isCollidedHorizontally = x != moveX || z != moveZ;
-    isCollidedVertically = y != moveY;
-    onGround = isCollidedVertically && y < 0.0f;
-
-    if (isCollidedVertically) velocity.y = 0.0f;
-    if (isCollidedHorizontally) {
-        if (x != moveX) velocity.x = 0.0f;
-        if (z != moveZ) velocity.z = 0.0f;
-    }
-
-    // Trigger block collision callbacks todo
-    // for (auto &block : collisions) block.onEntityCollidedWithBlock(this);
-}
-
-float Entity::jumpHeight() const { return 0.42f; }
-
-float Entity::getEyeHeight() const { return 1.62f; }
-
 void Entity::jump() {
     velocity.y = jumpHeight();
-
-    // Jump potion effect
-    // if (hasPotion(Potion::Jump)) {
-    //     velocity.y += (getPotionAmplifier(Potion::Jump) + 1) * 0.1f;
-    // }
-
-    // Sprint jump horizontal boost
-    if (isSprinting() && moveForward > 0.0f) {
-        const float yawRad = rotation.yaw * static_cast<float>(M_PI / 180.0f);
-        constexpr float sprintBoost = 0.2f;
-        velocity.z += std::sin(yawRad) * sprintBoost;
-        velocity.x += std::cos(yawRad) * sprintBoost;
+    if (isSprinting() && moveForward > 0.0) {
+        double yawRad = rotation.yaw * M_PI / 180.0;
+        double boost = 0.2;
+        velocity.x += -std::sin(yawRad) * boost;
+        velocity.z += std::cos(yawRad) * boost;
     }
-
     isAirBorne = true;
 }
 
 void Entity::onLivingUpdate() {
     if (jumpTicks > 0) --jumpTicks;
-
-    moveStrafe *= 0.98f;
-    moveForward *= 0.98f;
+    moveStrafe *= 0.98;
+    moveForward *= 0.98;
 
     if (isJumping && onGround && jumpTicks == 0) {
         jump();
@@ -231,7 +42,152 @@ void Entity::onLivingUpdate() {
 
     moveEntityWithHeading(moveStrafe, moveForward);
 
-    if (std::abs(velocity.x) < 0.005f) velocity.x = 0.0f;
-    if (std::abs(velocity.y) < 0.005f) velocity.y = 0.0f;
-    if (std::abs(velocity.z) < 0.005f) velocity.z = 0.0f;
+    if (std::abs(velocity.x) < 1e-5) velocity.x = 0.0;
+    if (std::abs(velocity.y) < 1e-5) velocity.y = 0.0;
+    if (std::abs(velocity.z) < 1e-5) velocity.z = 0.0;
+}
+
+void Entity::moveEntityWithHeading(double strafe, double forward) {
+    if (isSneaking()) {
+        strafe *= 0.3;
+        forward *= 0.3;
+    }
+
+    double f4 = 0.91;
+    if (onGround) {
+        const auto* below = mc->world->getBlockAt(
+            std::floor(position.x),
+            std::floor(getBoundingBox().minY - 1.0),
+            std::floor(position.z)
+        );
+        f4 = below ? below->slipperiness() * 0.91 : 0.546;
+    }
+
+    double moveFactor = onGround ? getAIMoveSpeed() * 0.16277136 / (f4 * f4 * f4) : jumpMovementFactor;
+    if (isSprinting()) moveFactor *= 1.3;
+
+    moveFlying(strafe, forward, moveFactor);
+
+    if (isOnLadder()) {
+        constexpr double ladderClamp = 0.15;
+        velocity.x = std::clamp(velocity.x, -ladderClamp, ladderClamp);
+        velocity.z = std::clamp(velocity.z, -ladderClamp, ladderClamp);
+        if (velocity.y < -ladderClamp) velocity.y = -ladderClamp;
+        if (isSneaking() && velocity.y < 0.0) velocity.y = 0.0;
+        fallDistance = 0.0;
+    }
+
+    moveEntity(velocity.x, velocity.y, velocity.z);
+
+    if (!isInWater() && !isInLava()) {
+        velocity.x *= f4;
+        velocity.z *= f4;
+    }
+
+    if (isInWater() || isInLava()) {
+        constexpr double liquidFriction = 0.8;
+        moveFlying(strafe, forward, 0.02);
+        moveEntity(velocity.x, velocity.y, velocity.z);
+        velocity.x *= liquidFriction;
+        velocity.y *= liquidFriction;
+        velocity.z *= liquidFriction;
+        velocity.y -= 0.02;
+    }
+
+    velocity.y -= 0.08;
+    velocity.y *= 0.98;
+}
+
+void Entity::moveFlying(double strafe, double forward, double friction) {
+    double f = std::sqrt(strafe * strafe + forward * forward);
+    if (f < 1e-4) return;
+    if (f > 1.0) {
+        strafe /= f;
+        forward /= f;
+    }
+    strafe *= friction;
+    forward *= friction;
+
+    double yawRad = rotation.yaw * M_PI / 180.0;
+    velocity.x += forward * std::cos(yawRad) - strafe * std::sin(yawRad);
+    velocity.z += forward * std::sin(yawRad) + strafe * std::cos(yawRad);
+}
+
+void Entity::moveEntity(double dx, double dy, double dz) {
+    if (noClip) {
+        boundingBox = getBoundingBox().offset(dx, dy, dz);
+        resetPositionToBB();
+        return;
+    }
+
+    double origX = dx, origY = dy, origZ = dz;
+    AABB bb = getBoundingBox();
+    auto collidingBlocks = mc->world->getCollidingBlocks(bb.offset(dx, dy, dz));
+
+    // Y-axis
+    for (const auto& b : collidingBlocks) dy = b->calculateYOffset(bb, dy);
+    bb = bb.offset(0.0, dy, 0.0);
+
+    // X-axis
+    for (const auto& b : collidingBlocks) dx = b->calculateXOffset(bb, dx);
+    bb = bb.offset(dx, 0.0, 0.0);
+
+    // Z-axis
+    for (const auto& b : collidingBlocks) dz = b->calculateZOffset(bb, dz);
+    bb = bb.offset(0.0, 0.0, dz);
+
+    // StepHeight
+    if (stepHeight > 0.0 && onGround && (origX != dx || origZ != dz)) {
+        double stepY = stepHeight;
+        AABB bbStep = getBoundingBox().offset(origX, stepY, origZ);
+        auto stepBlocks = mc->world->getCollidingBlocks(bbStep);
+        for (const auto& b : stepBlocks) stepY = b->calculateYOffset(bbStep, stepY);
+        bbStep = bbStep.offset(0.0, stepY, 0.0);
+
+        double stepX = origX, stepZ = origZ;
+        for (const auto& b : stepBlocks) stepX = b->calculateXOffset(bbStep, stepX);
+        bbStep = bbStep.offset(stepX, 0.0, 0.0);
+        for (const auto& b : stepBlocks) stepZ = b->calculateZOffset(bbStep, stepZ);
+        bbStep = bbStep.offset(0.0, 0.0, stepZ);
+
+        if (stepX*stepX + stepZ*stepZ > dx*dx + dz*dz) {
+            dx = stepX;
+            dz = stepZ;
+            dy = stepY;
+            bb = bbStep;
+        }
+    }
+
+    boundingBox = bb;
+    resetPositionToBB();
+
+    isCollidedHorizontally = origX != dx || origZ != dz;
+    isCollidedVertically = origY != dy;
+    onGround = isCollidedVertically && origY < 0.0;
+    isCollided = isCollidedHorizontally || isCollidedVertically;
+
+    if (origX != dx) velocity.x = 0.0;
+    if (origY != dy) velocity.y = 0.0;
+    if (origZ != dz) velocity.z = 0.0;
+}
+
+void Entity::resetPositionToBB() const {
+    position.x = (boundingBox.minX + boundingBox.maxX) / 2;
+    position.y = boundingBox.minY;
+    position.z = (boundingBox.minZ + boundingBox.maxZ) / 2;
+}
+
+AABB Entity::getBoundingBox() const {
+    return AABB{
+        position.x - width/2, position.y, position.z - width/2,
+        position.x + width/2, position.y + height, position.z + width/2
+    };
+}
+
+void Entity::setPosition(double x, double y, double z) const {
+    position.x = x;
+    position.y = y;
+    position.z = z;
+    lastPos = position;
+    velocity = {0.0, 0.0, 0.0};
 }
