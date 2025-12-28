@@ -12,7 +12,7 @@ NetClient::~NetClient() {
     disconnect();
 }
 
-bool NetClient::connect() {
+bool NetClient::connect(Minecraft* mc) {
     if (!conn_.connect()) return false;
     running_ = true;
     netThread_ = std::thread(&NetClient::networkLoop, this);
@@ -22,7 +22,7 @@ bool NetClient::connect() {
 
     // std::cout << "[NetClient] Connected to server (network thread started)\n";
 
-    const auto loginHandler = std::make_shared<NetHandlerLogin>(this, "lily");
+    const auto loginHandler = std::make_shared<NetHandlerLogin>(this, "lily", mc);
     handler_ = loginHandler;
 
     return true;

@@ -5,6 +5,7 @@
 
 #include "BlockAtlas.hpp"
 #include "Camera.hpp"
+#include "FontRenderer.hpp"
 #include "../world/World.hpp"
 #include "Shader.hpp"
 

@@ -21,8 +21,8 @@ public:
 
     mutable bool receivedCompPacket = false;
 
-    explicit NetHandlerLogin(NetClient* client, const std::string& username)
-        : NetHandler(client), username(username) { }
+    explicit NetHandlerLogin(NetClient* client, const std::string& username, Minecraft* mc)
+        : NetHandler(client, mc), username(username) { }
 
     void handlePacket(const ClientBoundPacket& packet) override {
         // std::cout << "[Login] Packet ID: " << packet.id << ", length: " << packet.data.size() << "\n";
@@ -44,7 +44,7 @@ public:
                 uuid = p.uuid;
                 username = p.username;
                 // std::cout << "[Login] Login success! UUID: " << uuid << ", Username: " << username << "\n";
-                const auto playHandler = std::make_shared<NetHandlerPlay>(client, uuid, username);
+                const auto playHandler = std::make_shared<NetHandlerPlay>(client, uuid, username, mc);
                 client->setHandler(playHandler);
                 break;
             }

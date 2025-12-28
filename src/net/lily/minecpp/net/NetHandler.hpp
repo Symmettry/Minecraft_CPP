@@ -6,12 +6,14 @@
 #define MINECRAFTCLIENT_NETHANDLER_HPP
 #include "packets/ClientBoundPacket.hpp"
 
+struct Minecraft;
 struct NetClient;
 
 class NetHandler {
 public:
     NetClient *client;
-    explicit NetHandler(NetClient* client) : client(client) {}
+    Minecraft *mc;
+    explicit NetHandler(NetClient* client, Minecraft* mc) : client(client), mc(mc) {}
 
     virtual ~NetHandler() = default;
 

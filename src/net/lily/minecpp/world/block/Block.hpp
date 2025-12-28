@@ -17,12 +17,14 @@ enum class Material {
     Ice,
 };
 
+using BlockPos = glm::vec<3, int>;
+
 class Block {
 public:
     virtual ~Block() = default;
 
     Material material;
-    glm::vec<3, int> position;
+    BlockPos position;
 
     Block() : material(Material::Air), position(0,0,0) {}
     Block(const int x, const int y, const int z) : material(Material::Air), position(x, y, z) {}

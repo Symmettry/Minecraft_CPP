@@ -150,9 +150,16 @@ void Entity::moveEntityWithHeading(float strafe, float forward) {
         velocity.y = 0.2;
     }
 
-    // if not loaded bla bla bla
+    if (!mc->world->isChunkAtLoaded(position.x, position.y)) {
+        if (position.y > 0.0) {
+            velocity.y = -0.1;
+        } else {
+            velocity.y = 0.0;
+        }
+    } else {
+        velocity.y -= 0.08;
+    }
 
-    velocity.y -= 0.08;
     velocity.y *= 0.98f;
     velocity.x *= static_cast<double>(f4);
     velocity.z *= static_cast<double>(f4);
@@ -424,14 +431,23 @@ void Entity::setBoundingBox(const AABB &box) const {
     boundingBox = box;
 }
 
-void Entity::setPosition(double x, double y, double z) const {
-    lastPos.x = x;
-    lastPos.y = y;
-    lastPos.z = z;
-    position.x = x;
-    position.y = y;
-    position.z = z;
+void Entity::setPosition(const double x, const double y, const double z) const {
+    lastPos.x = position.x = x;
+    lastPos.y = position.y = y;
+    lastPos.z = position.z = z;
     lastPos = position;
-    velocity = {0.0, 0.0, 0.0};
     boundingBox = AABB{position.x - width/2, position.y, position.z - width/2, position.x + width/2, position.y + height, position.z + width/2};
+}
+void Entity::setRotation(const float yaw, const float pitch) const {
+    lastRot.yaw = rotation.yaw = yaw;
+    lastRot.pitch = rotation.pitch = pitch;
+}
+void Entity::setPositionAndRotation(const double x, const double y, const double z, const float yaw, const float pitch) const {
+    printf("Teleported to %f, %f, %f - %f %f\n", x, y, z, yaw, pitch);
+    setPosition(x, y, z);
+    setRotation(yaw, pitch);
+}
+
+bool Entity::isCurrentViewEntity() const {
+    return mc->getRenderViewEntity().get() == this;
 }

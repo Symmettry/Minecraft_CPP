@@ -7,6 +7,6 @@ uniform vec4 textColor;
 
 void main()
 {
-    float alpha = texture(fontTexture, TexCoord).r;  // assume R channel contains glyph mask
+    float alpha = texture(fontTexture, TexCoord).r;
     FragColor = vec4(textColor.rgb, alpha * textColor.a);
 }

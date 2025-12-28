@@ -26,6 +26,14 @@ public:
         return 0.1f; // move speed attribute; todo
     }
 
+    mutable glm::vec<3, double> lastReportedPos{0,0,0};
+    mutable Rotation lastReportedRot{0,0};
+    int positionUpdateTicks = 0;
+
+    int foodLevel = 20;
+    float foodSaturationLevel = 5.0f;
+    bool serverSneakState = false, serverSprintState = false;
+
     std::string username = "lily";
 };
 

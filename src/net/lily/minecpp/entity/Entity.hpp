@@ -39,6 +39,10 @@ public:
 
     void setPosition(double x, double y, double z) const;
 
+    void setRotation(float yaw, float pitch) const;
+
+    void setPositionAndRotation(double x, double y, double z, float yaw, float pitch) const;
+
     bool onGround = true, noClip = false, isInWeb = false, isAirBorne = false;
     float fallDistance = 0.0f, jumpMovementFactor = 0.02f, stepHeight = 0.6f;
     float width = 0.6f, height = 1.8f;
@@ -47,8 +51,8 @@ public:
     mutable glm::vec<3, double> lastPos{0,0,0};
     mutable glm::vec<3, double> velocity{0,0,0};
 
-    Rotation rotation{0.0, 0.0};
-    Rotation lastRot{0.0, 0.0};
+    mutable Rotation rotation{0.0, 0.0};
+    mutable Rotation lastRot{0.0, 0.0};
 
     bool isCollidedHorizontally = false;
     bool isCollidedVertically = false;
@@ -62,6 +66,8 @@ public:
     bool sneaking = false;
     bool sprinting = false;
 
+    float health = 0.0f;
+
     [[nodiscard]] virtual float getAIMoveSpeed() const { return 1.0f; }
     [[nodiscard]] virtual double getEyeHeight() const { return 1.62; }
     [[nodiscard]] virtual float jumpHeight() const { return 0.42f; }
@@ -69,6 +75,8 @@ public:
     [[nodiscard]] virtual bool isOnLadder() const;
     [[nodiscard]] virtual bool isInLava() const { return false; }
     [[nodiscard]] virtual bool isInWater() const { return false; }
+
+    [[nodiscard]] bool isCurrentViewEntity() const;
 
     void setSneaking(bool sneak) { sneaking = sneak; }
     bool isSneaking() const { return sneaking; }
@@ -78,6 +86,9 @@ public:
 
     std::string coordinates() const {
         return "X: " + std::to_string(position.x) + ", Y: " + std::to_string(position.y) + ", Z: " + std::to_string(position.z);
+    }
+    std::string rotations() const {
+        return "Yaw: " + std::to_string(rotation.yaw) + ", Pitch: " + std::to_string(rotation.pitch);
     }
 
 protected:

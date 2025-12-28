@@ -210,26 +210,4 @@ void Renderer::render(const World* world) const {
         blockShader->setMat4("model", glm::value_ptr(model));
         snd.draw();
     }
-
-    glBindVertexArray(0);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_DEPTH_TEST);
-
-    FontRenderer* fr = mc->fontRenderer;
-    fr->shader->use();
-    int fbWidth, fbHeight;
-    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
-    fr->shader->setMat4("projection", glm::value_ptr(glm::ortho(0.0f, float(fbWidth), float(fbHeight), 0.0f)));
-
-    // 3. Render text in screen space
-    fr->renderText(mc->player->coordinates(), 10, 10, 5.0f, 0xFFFFFFFF, true);
-
-    // 4. Restore state for next frame
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
-
-    glfwSwapBuffers(window);
-    glfwPollEvents();
 }

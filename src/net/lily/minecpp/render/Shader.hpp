@@ -47,7 +47,9 @@ public:
         glDeleteShader(fragment);
     }
 
-    void use() const { glUseProgram(ID); }
+    void use() const {
+        glUseProgram(ID);
+    }
     static void stop() { glUseProgram(0); }
 
     void setMat4(const std::string &name, const float* mat) const {

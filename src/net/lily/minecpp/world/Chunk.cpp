@@ -67,7 +67,6 @@ void Chunk::generateMesh(const BlockAtlas* blockAtlas) {
                 const auto &block = getBlock(x, y, z);
                 if (!block || !block->isOpaque()) continue;
                 const Material mat = block->material;
-                printf("Material %d name %s\n", static_cast<int>(mat), block->getName().c_str());
 
                 for (int f = 0; f < 6; ++f) {
                     int nx = x, ny = y, nz = z;

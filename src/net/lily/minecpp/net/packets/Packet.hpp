@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <memory>
 #include <iostream>
@@ -69,6 +70,46 @@ public:
     static void writeByteArray(const std::vector<uint8_t>& arr, std::vector<uint8_t>& buffer) {
         writeVarInt(arr.size(), buffer);
         buffer.insert(buffer.end(), arr.begin(), arr.end());
+    }
+
+    static double readDouble(const std::vector<uint8_t>& data, size_t& offset) {
+        if (offset + 8 > data.size()) throw std::runtime_error("Buffer too small for double");
+        uint64_t temp = 0;
+        for (int i = 0; i < 8; ++i) {
+            temp = (temp << 8) | data[offset + i];
+        }
+        offset += 8;
+        double value;
+        std::memcpy(&value, &temp, sizeof(double));
+        return value;
+    }
+
+    static float readFloat(const std::vector<uint8_t>& data, size_t& offset) {
+        if (offset + 4 > data.size()) throw std::runtime_error("Buffer too small for float");
+        uint32_t temp = 0;
+        for (int i = 0; i < 4; ++i) {
+            temp = (temp << 8) | data[offset + i];
+        }
+        offset += 4;
+        float value;
+        std::memcpy(&value, &temp, sizeof(float));
+        return value;
+    }
+
+    static void writeDouble(double value, std::vector<uint8_t>& buffer) {
+        uint64_t bits;
+        std::memcpy(&bits, &value, sizeof(double));
+        for (int i = 7; i >= 0; --i) {
+            buffer.push_back(static_cast<uint8_t>((bits >> (i * 8)) & 0xFF));
+        }
+    }
+
+    static void writeFloat(float value, std::vector<uint8_t>& buffer) {
+        uint32_t bits;
+        std::memcpy(&bits, &value, sizeof(float));
+        for (int i = 3; i >= 0; --i) {
+            buffer.push_back(static_cast<uint8_t>((bits >> (i * 8)) & 0xFF));
+        }
     }
 
 };

@@ -31,6 +31,10 @@ struct Camera {
         return std::lerp(entity->lastRot.yaw, entity->rotation.yaw, pt);
     }
 
+    [[nodiscard]] std::shared_ptr<Entity>& getRenderViewEntity() {
+        return entity;
+    }
+
 private:
     float x, y, z;
     std::shared_ptr<Entity> entity;

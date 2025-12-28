@@ -37,6 +37,8 @@ public:
 
     static const Minecraft* getMinecraft();
 
+    Shader* textShader;
+
     explicit Minecraft(const std::string& serverIp = "", uint16_t serverPort = 25565) {
 
         BlockRegistry::initialize();
@@ -45,31 +47,32 @@ public:
         input = new Input(renderer->window);
         settings = new GameSettings(renderer->window);
 
-        Shader textShader("assets/shaders/text.vert", "assets/shaders/text.frag");
-        fontRenderer = new FontRenderer("assets/minecraft/textures/font/ascii.png", &textShader);
+        textShader = new Shader("assets/shaders/text.vert", "assets/shaders/text.frag");
+        fontRenderer = new FontRenderer("assets/minecraft/textures/font/ascii.png", textShader);
 
         world->entities.push_back(player);
 
-        // Generate some test world
-        for (int x=-16;x<16;x++) {
-            for (int z=-16;z<16;z++) {
-                Material mat;
-                if (x == 0 || z == 0) mat = Material::Stone;
-                else if (x > 0 && z > 0) mat = Material::Grass;
-                else if (x < 0 && z > 0) mat = Material::Dirt;
-                else if (x < 0) mat = Material::Obsidian;
-                else mat = Material::Ice;
-
-                world->setBlockAt(x, 0, z, mat);
-                if ((x + z) % 2 == 0) world->setBlockAt(x, 10, z, mat);
-            }
-        }
-
-        for (int i=0;i<10;i++) {
-            world->setBlockAt(3 + i, 1, 3, Material::Ice);
-            world->setBlockAt(3 + i, 1, 4, Material::Ice);
-        }
-
+        // // Generate some test world
+        // for (int x=-16;x<16;x++) {
+        //     for (int z=-16;z<16;z++) {
+        //         Material mat;
+        //         if (x == 0 || z == 0) mat = Material::Stone;
+        //         else if (x > 0 && z > 0) mat = Material::Grass;
+        //         else if (x < 0 && z > 0) mat = Material::Dirt;
+        //         else if (x < 0) mat = Material::Obsidian;
+        //         else mat = Material::Ice;
+        //
+        //         world->setBlockAt(x, 0, z, mat);
+        //         if ((x + z) % 2 == 0) world->setBlockAt(x, 10, z, mat);
+        //     }
+        // }
+        //
+        // for (int i=0;i<10;i++) {
+        //     world->setBlockAt(3 + i, 1, 3, Material::Ice);
+        //     world->setBlockAt(3 + i, 1, 4, Material::Ice);
+        // }
+        //
+        world->setBlockAt(-196, 69, 254, Material::Dirt);
         for (auto &val: world->chunks | std::views::values) {
             val.generateMesh(renderer->blockAtlas);
             val.uploadMesh();
@@ -77,7 +80,7 @@ public:
 
         if (!serverIp.empty()) {
             netClient = new NetClient(serverIp, serverPort, player->username);
-            netClient->connect();
+            netClient->connect(this);
         }
     }
 
@@ -86,6 +89,13 @@ public:
         delete settings;
         delete input;
         delete netClient;
+    }
+
+    void setRenderViewEntity(const std::shared_ptr<Entity>& entity) const {
+        camera->setRenderViewEntity(entity);
+    }
+    std::shared_ptr<Entity>& getRenderViewEntity() const {
+        return camera->getRenderViewEntity();
     }
 
     int width() const {
@@ -97,7 +107,7 @@ public:
 
     void displayGuiScreen(Gui* gui) const {
         currentScreen = gui;
-        gui->onOpen();
+        // gui->onOpen();
     }
 
     void init() const {

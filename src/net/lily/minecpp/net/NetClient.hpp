@@ -15,7 +15,7 @@ struct NetClient {
     NetClient(const std::string& host, uint16_t port, std::string  username);
     ~NetClient();
 
-    bool connect();
+    bool connect(Minecraft *mc);
 
     void sendHandshake() const;
 

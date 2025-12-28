@@ -9,7 +9,7 @@ Shader* Gui::quadShader;
 
 void Gui::init() {
     mc = Minecraft::getMinecraft();
-    initQuad();
+    // initQuad();
 }
 
 void Gui::initQuad() {
