@@ -2,8 +2,12 @@
 #define MINECRAFTCLIENT_AABB_HPP
 
 struct AABB {
-    double minX, minY, minZ;
-    double maxX, maxY, maxZ;
+
+    AABB() = default;
+    AABB(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) : minX(minX), minY(minY), minZ(minZ), maxX(maxX), maxY(maxY), maxZ(maxZ) {}
+
+    double minX{}, minY{}, minZ{};
+    double maxX{}, maxY{}, maxZ{};
 
     [[nodiscard]] AABB offset(const double x, const double y, const double z) const {
         return {minX + x, minY + y, minZ + z, maxX + x, maxY + y, maxZ + z};

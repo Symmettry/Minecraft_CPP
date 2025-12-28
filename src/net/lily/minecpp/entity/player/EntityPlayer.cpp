@@ -19,7 +19,7 @@ void EntityPlayer::update() {
     onLivingUpdate();
 }
 
-void EntityPlayer::moveEntityWithHeading(double strafe, double forward) {
+void EntityPlayer::moveEntityWithHeading(float strafe, float forward) {
     //todo
     // const glm::vec3 prevPos = position;
 

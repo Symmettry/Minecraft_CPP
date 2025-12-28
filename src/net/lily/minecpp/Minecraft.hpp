@@ -44,8 +44,8 @@ struct Minecraft {
 
         world->entities.push_back(player);
 
-        for (int x=-10;x<10;x++) {
-            for (int z=-10;z<10;z++) {
+        for (int x=-16;x<16;x++) {
+            for (int z=-16;z<16;z++) {
                 world->setBlockAt(x, 0, z, Material::Grass);
                 if ((x + z) % 2 == 0) {
                     world->setBlockAt(x, 10, z, Material::Dirt);

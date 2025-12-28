@@ -19,30 +19,31 @@ struct ChunkCoordHash {
 
 class World {
 public:
-    std::unordered_map<ChunkCoord, Chunk, ChunkCoordHash> chunks;
-    std::vector<std::shared_ptr<Entity>> entities;
+    mutable std::unordered_map<ChunkCoord, Chunk, ChunkCoordHash> chunks;
+    mutable std::vector<std::shared_ptr<Entity>> entities;
 
     void update() const;
 
-    void setBlockAt(const int worldX, const int worldY, const int worldZ, const Material type) {
-        if (worldY < 0 || worldY >= CHUNK_SIZE) return;
+    void setBlockAt(const int worldX, const int worldY, const int worldZ, const Material type) const {
+        if (worldY < 0 || worldY >= WORLD_HEIGHT) return;
 
-        const int chunkX = (worldX >= 0 ? worldX / CHUNK_SIZE : (worldX - CHUNK_SIZE + 1) / CHUNK_SIZE);
-        const int chunkZ = (worldZ >= 0 ? worldZ / CHUNK_SIZE : (worldZ - CHUNK_SIZE + 1) / CHUNK_SIZE);
+        const int chunkX = std::floor(static_cast<float>(worldX) / CHUNK_SIZE);
+        const int chunkZ = std::floor(static_cast<float>(worldZ) / CHUNK_SIZE);
 
-        const int localX = (worldX % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
-        const int localZ = (worldZ % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+        const int localX = worldX - chunkX * CHUNK_SIZE;
+        const int localZ = worldZ - chunkZ * CHUNK_SIZE;
 
         ChunkCoord coord{chunkX, chunkZ};
-        if (!chunks.contains(coord)) {
-            chunks.emplace(
+        auto it = chunks.find(coord);
+        if (it == chunks.end()) {
+            it = chunks.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(coord),
                 std::forward_as_tuple(chunkX, chunkZ)
-            );
+            ).first;
         }
 
-        Chunk& chunk = chunks.at(coord);
+        Chunk& chunk = it->second;
         chunk.setBlock(localX, worldY, localZ, type);
     }
 
@@ -55,31 +56,30 @@ public:
 
     std::vector<const Block *> getCollidingBlocks(const AABB &box) const;
 
-    const Block* getBlockAt(const glm::vec<3, int> vec) {
+    const Block* getBlockAt(const glm::vec<3, int> vec) const {
         return getBlockAt(vec.x, vec.y, vec.z);
     }
-    const Block* getBlockAt(const int worldX, const int worldY, const int worldZ) {
-        if (worldY < 0 || worldY >= CHUNK_SIZE) return nullptr;
+    const Block* getBlockAt(const int worldX, const int worldY, const int worldZ) const {
+        if (worldY < 0 || worldY >= WORLD_HEIGHT) return nullptr;
 
-        const int chunkX = (worldX >= 0 ? worldX / CHUNK_SIZE : (worldX - CHUNK_SIZE + 1) / CHUNK_SIZE);
-        const int chunkZ = (worldZ >= 0 ? worldZ / CHUNK_SIZE : (worldZ - CHUNK_SIZE + 1) / CHUNK_SIZE);
+        int chunkX = std::floor(static_cast<float>(worldX) / CHUNK_SIZE);
+        int chunkZ = std::floor(static_cast<float>(worldZ) / CHUNK_SIZE);
 
-        const int localX = (worldX % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
-        const int localZ = (worldZ % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+        int localX = worldX % CHUNK_SIZE;
+        if (localX < 0) localX += CHUNK_SIZE;
+
+        int localZ = worldZ % CHUNK_SIZE;
+        if (localZ < 0) localZ += CHUNK_SIZE;
+
+        printf("%d %d %d %d\n", chunkX, chunkZ, localX, localZ);
 
         ChunkCoord coord{chunkX, chunkZ};
-
         auto it = chunks.find(coord);
-        if (it == chunks.end()) {
-            it = chunks.emplace(
-                std::piecewise_construct,
-                std::forward_as_tuple(coord),
-                std::forward_as_tuple(chunkX, chunkZ)
-            ).first;
-        }
+        if (it == chunks.end()) return nullptr; // don’t auto-create chunks
 
         const Chunk& chunk = it->second;
         const std::unique_ptr<Block>& blockPtr = chunk.getBlock(localX, worldY, localZ);
-        return blockPtr ? blockPtr.get() : nullptr;
+        return blockPtr.get();
     }
+
 };

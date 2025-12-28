@@ -16,7 +16,7 @@ public:
 
     void update() override;
 
-    void moveEntityWithHeading(double strafe, double forward) override;
+    void moveEntityWithHeading(float strafe, float forward) override;
 
     void handleMouseLook();
     void handleSprintToggle();

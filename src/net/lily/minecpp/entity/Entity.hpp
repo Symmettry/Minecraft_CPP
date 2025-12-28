@@ -7,6 +7,7 @@
 #include <algorithm>
 #include "net/lily/minecpp/util/AABB.hpp"
 #include "net/lily/minecpp/util/Rotation.hpp"
+#include "net/lily/minecpp/world/block/Block.hpp"
 
 struct Minecraft;
 
@@ -17,28 +18,27 @@ public:
     explicit Entity(const Minecraft* mc, double x, double y, double z);
     virtual ~Entity() = default;
 
-    // Update per tick
     virtual void update();
 
-    // Eye position
     double getEyePos() const;
     double getLastEyePos() const;
 
-    // Movement
-    virtual void moveEntityWithHeading(double strafe, double forward);
-    void moveFlying(double strafe, double forward, double friction);
+    virtual void moveEntityWithHeading(float strafe, float forward);
+    void moveFlying(float strafe, float forward, float friction) const;
     virtual void moveEntity(double dx, double dy, double dz);
     void resetPositionToBB() const;
 
-    // Jump / living update
     void jump();
     void onLivingUpdate();
 
-    // Bounding box
+    const Block *getBlockBelow() const;
+
     AABB getBoundingBox() const;
+
+    void setBoundingBox(const AABB &box) const;
+
     void setPosition(double x, double y, double z) const;
 
-    // State
     bool onGround = true, noClip = false, isInWeb = false, isAirBorne = false;
     float fallDistance = 0.0f, jumpMovementFactor = 0.02f, stepHeight = 0.6f;
     float width = 0.6f, height = 1.8f;
@@ -47,7 +47,6 @@ public:
     mutable glm::vec<3, double> lastPos{0,0,0};
     mutable glm::vec<3, double> velocity{0,0,0};
 
-    // Rotation
     Rotation rotation{0.0, 0.0};
     Rotation lastRot{0.0, 0.0};
 
@@ -55,22 +54,19 @@ public:
     bool isCollidedVertically = false;
     bool isCollided = false;
 
-    // Jumping
     int jumpTicks = 0;
     bool isJumping = false;
 
-    // Movement input
-    double moveForward = 0.0;
-    double moveStrafe = 0.0;
+    float moveForward = 0.0f;
+    float moveStrafe = 0.0f;
     bool sneaking = false;
     bool sprinting = false;
 
-    // Virtual overrides
     [[nodiscard]] virtual float getAIMoveSpeed() const { return 1.0f; }
     [[nodiscard]] virtual double getEyeHeight() const { return 1.62; }
     [[nodiscard]] virtual float jumpHeight() const { return 0.42f; }
 
-    [[nodiscard]] virtual bool isOnLadder() const { return false; }
+    [[nodiscard]] virtual bool isOnLadder() const;
     [[nodiscard]] virtual bool isInLava() const { return false; }
     [[nodiscard]] virtual bool isInWater() const { return false; }
 
