@@ -17,7 +17,7 @@ public:
 
     unsigned int cubeVAO{}, cubeVBO{};
 
-    Renderer(Minecraft* mc, Camera* camera, const int w, const int h) : window(nullptr), camera(camera), mc(mc), width(w), height(h) {}
+    Renderer(Minecraft* mc, Camera* camera, const int w, const int h) : window(nullptr), width(w), height(h), camera(camera), mc(mc) {}
     ~Renderer();
 
     void init();
@@ -30,10 +30,11 @@ public:
 
     GLFWwindow* window;
 
+    mutable int width, height;
+
 private:
     Camera* camera;
     Minecraft* mc;
-    int width, height;
     int modelLoc = 0;
     void processInput() const;
 };

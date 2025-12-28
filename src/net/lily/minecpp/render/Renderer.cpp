@@ -131,6 +131,9 @@ void Renderer::updateProjection(const int fbWidth, const int fbHeight) const {
 
     blockShader->use();
     blockShader->setMat4("projection", glm::value_ptr(projection));
+
+    width = fbWidth;
+    height = fbHeight;
 }
 
 unsigned int Renderer::loadTexture(const char* path) {
@@ -214,17 +217,16 @@ void Renderer::render(const World* world) const {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
 
-    const Shader* fontShader = mc->fontRenderer->shader;
-    fontShader->use();
-    fontShader->setInt("text", 0);
-
+    FontRenderer* fr = mc->fontRenderer;
+    fr->shader->use();
     int fbWidth, fbHeight;
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
-    const glm::mat4 proj = glm::ortho(0.0f, static_cast<float>(fbWidth), static_cast<float>(fbHeight), 0.0f);
-    fontShader->setMat4("projection", glm::value_ptr(proj));
+    fr->shader->setMat4("projection", glm::value_ptr(glm::ortho(0.0f, float(fbWidth), float(fbHeight), 0.0f)));
 
-    mc->fontRenderer->renderText(mc->player->coordinates(), 50, 50, 2.0f, 0xFFFFFFFF, true);
+    // 3. Render text in screen space
+    fr->renderText(mc->player->coordinates(), 10, 10, 5.0f, 0xFFFFFFFF, true);
 
+    // 4. Restore state for next frame
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 

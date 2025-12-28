@@ -2,6 +2,8 @@
 #include "net/lily/minecpp/Minecraft.hpp"
 #include <cmath>
 
+// please never let me touch this ever again this is so aids
+
 Entity::Entity(const Minecraft* mc, double x, double y, double z)
     : mc(mc) {
     setPosition(x, y, z);

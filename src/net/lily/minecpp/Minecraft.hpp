@@ -9,33 +9,39 @@
 #include <chrono>
 #include <thread>
 
+#include "menu/Gui.hpp"
 #include "net/NetClient.hpp"
 #include "render/FontRenderer.hpp"
 #include "util/GameSettings.hpp"
 #include "util/Inputs.hpp"
 #include "world/block/BlockRegistry.hpp"
 
-constexpr int width = 800, height = 800;
+constexpr int _width = 800, _height = 800;
 
 struct Minecraft {
+private:
+    mutable Gui* currentScreen = nullptr;
+public:
     Timer* timer = new Timer();
     World* world = new World();
     std::shared_ptr<EntityPlayer> player = std::make_shared<EntityPlayer>(this, 0.5, 1, 0.5);
 
     Camera* camera = new Camera(0, 0, 0, player);
-    Renderer* renderer = new Renderer(this, camera, width, height);
+    Renderer* renderer = new Renderer(this, camera, _width, _height);
     GameSettings* settings;
     Input* input;
     FontRenderer* fontRenderer;
     NetClient* netClient = nullptr;
 
-    bool running = true;
+    mutable bool running = true;
+
+    static const Minecraft* getMinecraft();
 
     explicit Minecraft(const std::string& serverIp = "", uint16_t serverPort = 25565) {
 
         BlockRegistry::initialize();
-
         renderer->init();
+
         input = new Input(renderer->window);
         settings = new GameSettings(renderer->window);
 
@@ -44,32 +50,20 @@ struct Minecraft {
 
         world->entities.push_back(player);
 
+        // Generate some test world
         for (int x=-16;x<16;x++) {
             for (int z=-16;z<16;z++) {
                 Material mat;
-
-                if (x == 0 || z == 0) {
-                    mat = Material::Stone; // cross in the middle
-                } else if (x > 0 && z > 0) {
-                    mat = Material::Grass; // top-right quadrant
-                } else if (x < 0 && z > 0) {
-                    mat = Material::Dirt; // top-left quadrant
-                } else if (x < 0) {
-                    mat = Material::Obsidian; // bottom-left quadrant
-                } else {
-                    mat = Material::Ice; // bottom-right quadrant
-                }
+                if (x == 0 || z == 0) mat = Material::Stone;
+                else if (x > 0 && z > 0) mat = Material::Grass;
+                else if (x < 0 && z > 0) mat = Material::Dirt;
+                else if (x < 0) mat = Material::Obsidian;
+                else mat = Material::Ice;
 
                 world->setBlockAt(x, 0, z, mat);
-                if ((x + z) % 2 == 0) {
-                    world->setBlockAt(x, 10, z, mat);
-                }
+                if ((x + z) % 2 == 0) world->setBlockAt(x, 10, z, mat);
             }
         }
-        world->setBlockAt(8, 1, 8, Material::Grass);
-        world->setBlockAt(8, 1, -8, Material::Ice);
-        world->setBlockAt(-8, 1, 8, Material::Dirt);
-        world->setBlockAt(-8, 1, -8, Material::Obsidian);
 
         for (int i=0;i<10;i++) {
             world->setBlockAt(3 + i, 1, 3, Material::Ice);
@@ -85,12 +79,6 @@ struct Minecraft {
             netClient = new NetClient(serverIp, serverPort, player->username);
             netClient->connect();
         }
-
-        running = true;
-        std::thread tickThread(&Minecraft::runTickLoop, this);
-        runRenderLoop();
-        running = false;
-        tickThread.join();
     }
 
     ~Minecraft() {
@@ -98,6 +86,26 @@ struct Minecraft {
         delete settings;
         delete input;
         delete netClient;
+    }
+
+    int width() const {
+        return renderer->width;
+    }
+    int height() const {
+        return renderer->height;
+    }
+
+    void displayGuiScreen(Gui* gui) const {
+        currentScreen = gui;
+        gui->onOpen();
+    }
+
+    void init() const {
+        running = true;
+        std::thread tickThread(&Minecraft::runTickLoop, this);
+        runRenderLoop();
+        running = false;
+        tickThread.join();
     }
 
     void runTickLoop() const {
@@ -124,12 +132,10 @@ struct Minecraft {
 
         while (running && !renderer->shouldClose()) {
             auto now = clock::now();
-
             timer->calculatePartialTicks(now);
             render();
             frames++;
 
-            // Calculate FPS every second
             if (now - lastFpsTime >= std::chrono::seconds(1)) {
                 std::cout << "FPS: " << frames << std::endl;
                 frames = 0;
@@ -138,19 +144,8 @@ struct Minecraft {
         }
     }
 
-
-    void render() const {
-        renderer->render(world);
-    }
-
-    void runTick() const {
-        input->updateMouse();
-        world->update();
-
-        if (netClient) {
-            netClient->tick();
-        }
-    }
+    void render() const;
+    void runTick() const;
 };
 
 #endif

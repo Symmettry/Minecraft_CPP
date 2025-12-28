@@ -18,7 +18,6 @@ std::vector<const Block *> World::getCollidingBlocks(const AABB &box) const {
             for (int z = floor(box.minZ); z <= box.maxZ; ++z) {
                 const Block* block = getBlockAt(x, y, z);
                 if (!block || !block->isOpaque()) continue;
-                printf("collision at %d %d %d\n", x, y, z);
                 collisions.push_back(block);
             }
         }
