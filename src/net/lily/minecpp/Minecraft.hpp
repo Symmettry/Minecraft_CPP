@@ -21,7 +21,10 @@ constexpr int _width = 800, _height = 800;
 struct Minecraft {
 private:
     mutable Gui* currentScreen = nullptr;
+
 public:
+    uint8_t maxPlayers = 1;
+
     Timer* timer = new Timer();
     World* world = new World();
     std::shared_ptr<EntityPlayer> player = std::make_shared<EntityPlayer>(this, 0.5, 1, 0.5);

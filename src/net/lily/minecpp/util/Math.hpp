@@ -5,6 +5,10 @@
 #ifndef MINECRAFTCLIENT_MATH_HPP
 #define MINECRAFTCLIENT_MATH_HPP
 #include <glm/vec4.hpp>
+#include <sstream>
+#include <iomanip>
+#include <type_traits>
+#include <string>
 
 #define FLOAT static_cast<float>
 
@@ -24,6 +28,23 @@ public:
 
         return { r, g, b, a };
     }
+
+    template <typename T>
+    requires std::is_integral_v<T>
+    static std::string toHexString(const T value, const bool uppercase = false) {
+        std::ostringstream stream;
+        stream << std::hex;
+        if (uppercase)
+        {
+            stream << std::uppercase;
+        }
+        stream << static_cast<std::make_unsigned_t<T>>(value);
+        return stream.str();
+    }
+};
+
+struct UUID {
+    std::array<uint8_t, 16> bytes;
 };
 
 #endif //MINECRAFTCLIENT_MATH_HPP

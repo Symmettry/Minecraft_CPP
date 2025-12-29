@@ -6,6 +6,8 @@
 #include <memory>
 #include <iostream>
 
+#include "net/lily/minecpp/util/Math.hpp"
+
 class Packet {
 public:
     uint32_t id = 0;
@@ -110,6 +112,26 @@ public:
         for (int i = 3; i >= 0; --i) {
             buffer.push_back(static_cast<uint8_t>((bits >> (i * 8)) & 0xFF));
         }
+    }
+
+    static int32_t readInt(const std::vector<uint8_t>& data, size_t& offset) {
+        if (offset + 4 > data.size()) throw std::runtime_error("Buffer too small for int");
+        const int32_t value = (data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3];
+        offset += 4;
+        return value;
+    }
+
+    static uint8_t readByte(const std::vector<uint8_t>& data, size_t& offset) {
+        if (offset >= data.size()) throw std::runtime_error("Buffer too small for byte");
+        return data[offset++];
+    }
+
+    static UUID readUUID(const std::vector<uint8_t>& data, size_t& offset) {
+        if (offset + 16 > data.size()) throw std::runtime_error("Buffer too small for UUID");
+        std::array<uint8_t, 16> uuid{};
+        std::memcpy(uuid.data(), data.data() + offset, 16);
+        offset += 16;
+        return {uuid};
     }
 
 };

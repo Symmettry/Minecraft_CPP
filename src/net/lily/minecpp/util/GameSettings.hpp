@@ -21,6 +21,7 @@ struct GameSettings {
     const KeybindSetting sprint      {GLFW_KEY_R};
 
     const NumberSetting  mouseSensitivity{0.3};
+    EnumDifficulty::Value difficulty = EnumDifficulty::NORMAL;
 
     [[nodiscard]] bool isKeyDown(const KeybindSetting setting) const {
         return glfwGetKey(window, setting.key) == GLFW_PRESS;

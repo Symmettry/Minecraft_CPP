@@ -4,11 +4,10 @@
 #include <memory>
 #include "../../Packet.hpp"
 #include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
-#include "ItemStack.hpp"
+// #include "ItemStack.hpp"
 
 class S04PacketEntityEquipment : public ClientBoundPacket {
 public:
-    // todo
     // int32_t entityID = 0;
     // int16_t equipmentSlot = 0;
     // std::shared_ptr<ItemStack> itemStack;

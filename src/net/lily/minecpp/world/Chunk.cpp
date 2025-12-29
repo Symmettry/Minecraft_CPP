@@ -24,7 +24,12 @@ Chunk::~Chunk() {
 }
 
 void Chunk::setBlock(const int x, const int y, const int z, const Material type) {
-    blocks[index(x, y, z)] = BlockRegistry::createBlock(type, chunkX * CHUNK_SIZE + x, y, chunkZ * CHUNK_SIZE + z);
+    const int indexed = index(x, y, z);
+    if (indexed < 0 || indexed >= CHUNK_SIZE * CHUNK_SIZE * WORLD_HEIGHT) {
+        std::cerr << "Skipping invalid block " << x << ", " << y << ", " << z << " in chunk " << chunkX << ", " << chunkZ << std::endl;
+        return;
+    }
+    blocks[indexed] = BlockRegistry::createBlock(type, chunkX * CHUNK_SIZE + x, y, chunkZ * CHUNK_SIZE + z);
 }
 
 const std::unique_ptr<Block> &Chunk::getBlock(const int x, const int y, const int z) const {

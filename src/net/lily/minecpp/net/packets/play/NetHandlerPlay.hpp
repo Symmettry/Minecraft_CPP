@@ -9,15 +9,24 @@
 
 #include "client/C00PacketKeepAlive.hpp"
 #include "client/C03PacketPlayer.hpp"
+#include "client/C17PacketCustomPayload.hpp"
 #include "net/lily/minecpp/Minecraft.hpp"
 #include "net/lily/minecpp/net/NetHandler.hpp"
 #include "net/lily/minecpp/net/NetClient.hpp"
 #include "net/lily/minecpp/util/ChatHistory.hpp"
+#include "net/lily/minecpp/util/Math.hpp"
+#include "net/lily/minecpp/world/WorldClient.hpp"
 #include "server/S00PacketKeepAlive.hpp"
+#include "server/S01PacketJoinGame.hpp"
 #include "server/S02PacketChat.hpp"
 #include "server/S03PacketTimeUpdate.hpp"
+#include "server/S04PacketEntityEquipment.hpp"
+#include "server/S05PacketSpawnPosition.hpp"
 #include "server/S06PacketUpdateHealth.hpp"
+#include "server/S07PacketRespawn.hpp"
 #include "server/S08PacketPlayerPosLook.hpp"
+#include "server/S1FPacketSetExperience.hpp"
+#include "server/S20PacketEntityProperties.hpp"
 #include "server/S21PacketChunkData.hpp"
 #include "server/S26PacketMapChunkBulk.hpp"
 
@@ -58,90 +67,118 @@ public:
         chunk->uploadMesh();
     }
 
+    void handleKeepAlive(const S00PacketKeepAlive& p) const {
+        sendKeepAlive(p.key);
+    }
+
+    void handleJoinGame(const S01PacketJoinGame& packet) const {
+        mc->world = new WorldClient(this, WorldSettings{ 0L, packet.gameType, false, packet.hardcoreMode, packet.worldType }, packet.dimension, packet.difficulty);
+
+        mc->player->entityId = packet.entityId;
+        mc->player->gameType = packet.gameType;
+        mc->player->dimension = packet.dimension;
+        mc->player->reducedDebug = packet.reducedDebugInfo;
+        mc->settings->difficulty = packet.difficulty;
+        mc->maxPlayers = packet.maxPlayers;
+
+        // client->sendPacket(C15PacketClientSettings{mc->settings->language, mc->settings->renderDistance, mc->settings->chatVisibility, mc->settings->chatColors, mc->settings->partMask()});
+        client->sendPacket(C17PacketCustomPayload{"MC|BRAND", "vanilla"});
+    }
+
+    void handleChat(const S02PacketChat& p) const {
+        ChatHistory::addChat(p.chatMessage);
+    }
+
+    void handleTimeUpdate(const S03PacketTimeUpdate& p) const {
+        mc->world->totalTime = p.totalWorldTime;
+        mc->world->worldTime = p.worldTime;
+    }
+
+    void handleEntityEquipment(const S04PacketEntityEquipment& packet) const {
+        // todo
+    }
+
+    void handleSpawnPosition(const S05PacketSpawnPosition& packet) {
+        // todo
+    }
+
+    void handleUpdateHealth(const S06PacketUpdateHealth& p) const {
+        mc->player->health = p.health;
+        mc->player->foodLevel = p.foodLevel;
+        mc->player->foodSaturationLevel = p.saturationLevel;
+    }
+
+    void handleRespawn(const S07PacketRespawn& packet) {
+        // todo
+    }
+
+    void handlePlayerPosLook(const S08PacketPlayerPosLook& p) const {
+        const auto player = mc->player;
+
+        double sx = p.x, sy = p.y, sz = p.z;
+        float syaw = p.yaw, spitch = p.pitch;
+
+        if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::X)) sx += player->position.x;
+        else player->velocity.x = 0.0;
+        if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::Y)) sy += player->position.y;
+        else player->velocity.y = 0.0;
+        if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::Z)) sz += player->position.z;
+        else player->velocity.z = 0.0;
+
+        if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::X_ROT)) spitch += player->rotation.pitch;
+        if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::Y_ROT)) syaw += player->rotation.yaw;
+
+        mc->player->setPositionAndRotation(sx, sy, sz, syaw, spitch);
+        client->sendPacket(C06PacketPlayerPosLook{sx, player->getBoundingBox().minY, sz, syaw, spitch, false});
+    }
+
+    void handleSetExperience(const S1FPacketSetExperience& p) const {
+        mc->player->setXPStats(p.experience, p.experienceTotal, p.experienceLevel);
+    }
+
+    void handleEntityProperties(const S20PacketEntityProperties& packet) const {
+        // todo
+    }
+
+    void handleChunkData(const S21PacketChunkData& p) const {
+        processChunk(p.chunkX, p.chunkZ, p.getData());
+    }
+
+    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
+        printf("Received bulk chunks\n");
+        for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
+            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data);
+        }
+    }
+
     void handlePacket(const ClientBoundPacket& packet) override {
-        // std::cout << "[Play] Packet ID: " << packet.id << ", length: " << packet.data.size() << "\n";
         switch (packet.id) {
-            case 0x00: {
-                const auto p = S00PacketKeepAlive::deserialize(packet.data);
-                sendKeepAlive(p.key);
-                // std::cout << "[Play] Keep Alive: " << p.key << "\n";
-                break;
-            }
-            case 0x01: {
-                // todo
-                break;
-            }
-            case 0x02: {
-                const auto p = S02PacketChat::deserialize(packet.data);
-                ChatHistory::addChat(p.chatMessage);
-                break;
-            }
-            case 0x03: {
-                const auto p = S03PacketTimeUpdate::deserialize(packet.data);
-                mc->world->totalTime = p.totalWorldTime;
-                mc->world->worldTime = p.worldTime;
-                break;
-            }
-            case 0x04: {
-                // todo
-                break;
-            }
-            case 0x05: {
-                // todo
-                break;
-            }
-            case 0x06: {
-                const auto p = S06PacketUpdateHealth::deserialize(packet.data);
-                mc->player->health = p.health;
-                mc->player->foodLevel = p.foodLevel;
-                mc->player->foodSaturationLevel = p.saturationLevel;
-                break;
-            }
-            case 0x07: {
-                // todo
-                break;
-            }
-            case 0x08: {
-                const auto p = S08PacketPlayerPosLook::deserialize(packet.data);
-
-                const auto player = mc->player;
-
-                double sx = p.x, sy = p.y, sz = p.z;
-                float syaw = p.yaw, spitch = p.pitch;
-
-                if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::X)) sx += player->position.x;
-                else player->velocity.x = 0.0;
-                if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::Y)) sy += player->position.y;
-                else player->velocity.y = 0.0;
-                if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::Z)) sz += player->position.z;
-                else player->velocity.z = 0.0;
-
-                if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::X_ROT)) spitch += player->rotation.pitch;
-                if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::Y_ROT)) syaw += player->rotation.yaw;
-
-                mc->player->setPositionAndRotation(sx, sy, sz, syaw, spitch);
-                client->sendPacket(C06PacketPlayerPosLook{sx, player->getBoundingBox().minY, sz, syaw, spitch, false});
-                break;
-            }
-            case 0x21: { // S21PacketChunkData
-                const auto p = S21PacketChunkData::deserialize(packet.data);
-                processChunk(p.chunkX, p.chunkZ, p.getData());
-                break;
-            }
-
-            case 0x26: { // S26PacketMapChunkBulk
-                printf("Received bulk chunks\n");
-                const auto bulk = S26PacketMapChunkBulk::deserialize(packet.data);
-                for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
-                    processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data);
-                }
+            case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.data)); break;
+            case 0x01: handleJoinGame(S01PacketJoinGame::deserialize(packet.data)); break;
+            case 0x02: handleChat(S02PacketChat::deserialize(packet.data)); break;
+            case 0x03: handleTimeUpdate(S03PacketTimeUpdate::deserialize(packet.data)); break;
+            // case 0x04: handleEntityEquipment(S04PacketEntityEquipment::deserialize(packet.data)); break;
+            case 0x05: handleSpawnPosition(S05PacketSpawnPosition::deserialize(packet.data)); break;
+            case 0x06: handleUpdateHealth(S06PacketUpdateHealth::deserialize(packet.data)); break;
+            case 0x07: handleRespawn(S07PacketRespawn::deserialize(packet.data)); break;
+            case 0x08: handlePlayerPosLook(S08PacketPlayerPosLook::deserialize(packet.data)); break;
+            //<...>
+            case 0x1F: handleSetExperience(S1FPacketSetExperience::deserialize(packet.data)); break;
+            //<...>
+            case 0x20: handleEntityProperties(S20PacketEntityProperties::deserialize(packet.data)); break;
+            case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.data)); break;
+            //<...>
+            case 0x26: handleMapChunkBulk(S26PacketMapChunkBulk::deserialize(packet.data)); break;
+            //<...>
+            default: {
+                printf("Unhandled packet: %s\n", Math::toHexString(packet.id).c_str());
                 break;
             }
         }
     }
 
     void tick() override {
-        // implement tick logic here
+
     }
 
     [[nodiscard]] const char* getName() const override {

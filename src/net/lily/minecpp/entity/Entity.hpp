@@ -15,6 +15,8 @@ class Entity : public std::enable_shared_from_this<Entity> {
 public:
     const Minecraft* mc = nullptr;
 
+    int entityId = 0;
+
     explicit Entity(const Minecraft* mc, double x, double y, double z);
     virtual ~Entity() = default;
 
