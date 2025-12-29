@@ -41,16 +41,12 @@ void EntityPlayer::update() {
 
     if (/*ridingEntity == null*/ true) {
         if (posChange && rotChange) {
-            printf("sending c06 at %f %f %f %f %f %d\n", position.x, getBoundingBox().minY, position.z, rotation.yaw, rotation.pitch, onGround);
             mc->netClient->sendPacket(C06PacketPlayerPosLook{position.x, getBoundingBox().minY, position.z, rotation.yaw, rotation.pitch, onGround});
         } else if (posChange) {
-            printf("sending c04 at %f %f %f %d\n", position.x, getBoundingBox().minY, position.z, onGround);
             mc->netClient->sendPacket(C04PacketPlayerPosition{position.x, getBoundingBox().minY, position.z, onGround});
         } else if (rotChange) {
-            printf("sending c05 at %f %f %d\n", rotation.yaw, rotation.pitch, onGround);
             mc->netClient->sendPacket(C05PacketPlayerLook{rotation.yaw, rotation.pitch, onGround});
         } else {
-            printf("sending c03 at %d\n", onGround);
             mc->netClient->sendPacket(C03PacketPlayer{onGround});
         }
     } else {

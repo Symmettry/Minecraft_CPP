@@ -33,6 +33,11 @@
 class NetHandlerPlay : public NetHandler {
 public:
 
+    mutable bool doneLoadingTerrain = false;
+    bool isDone() const override {
+        return doneLoadingTerrain;
+    }
+
     std::string uuid, username;
 
     explicit NetHandlerPlay(NetClient* client, std::string uuid, std::string username, Minecraft* mc)
@@ -73,6 +78,7 @@ public:
 
     void handleJoinGame(const S01PacketJoinGame& packet) const {
         mc->world = new WorldClient(this, WorldSettings{ 0L, packet.gameType, false, packet.hardcoreMode, packet.worldType }, packet.dimension, packet.difficulty);
+        mc->world->entities.push_back(mc->player);
 
         mc->player->entityId = packet.entityId;
         mc->player->gameType = packet.gameType;
@@ -129,7 +135,15 @@ public:
         if (p.flags.contains(S08PacketPlayerPosLook::EnumFlags::Y_ROT)) syaw += player->rotation.yaw;
 
         mc->player->setPositionAndRotation(sx, sy, sz, syaw, spitch);
-        client->sendPacket(C06PacketPlayerPosLook{sx, player->getBoundingBox().minY, sz, syaw, spitch, false});
+        client->sendPacket(C06PacketPlayerPosLook{sx, sy, sz, syaw, spitch, false});
+
+        printf("Done loading terrain? %d\n", doneLoadingTerrain);
+        if (!doneLoadingTerrain) {
+            printf("Loading gui in game\n");
+            mc->player->lastPos = mc->player->position;
+            doneLoadingTerrain = true;
+            mc->displayGuiScreen(nullptr);
+        }
     }
 
     void handleSetExperience(const S1FPacketSetExperience& p) const {
@@ -152,6 +166,7 @@ public:
     }
 
     void handlePacket(const ClientBoundPacket& packet) override {
+        printf("[NetHandlerPlay] Handling packet S%s\n", Math::toHexString(packet.id, true).c_str());
         switch (packet.id) {
             case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.data)); break;
             case 0x01: handleJoinGame(S01PacketJoinGame::deserialize(packet.data)); break;
@@ -183,10 +198,6 @@ public:
 
     [[nodiscard]] const char* getName() const override {
         return "NetHandlerPlay";
-    }
-
-    [[nodiscard]] bool preManage(const ClientBoundPacket &packet) const override {
-        return false;
     }
 
 };

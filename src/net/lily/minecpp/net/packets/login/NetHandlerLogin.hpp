@@ -19,8 +19,6 @@ public:
     std::vector<uint8_t> serverPublicKey;
     std::vector<uint8_t> verifyToken;
 
-    mutable bool receivedCompPacket = false;
-
     explicit NetHandlerLogin(NetClient* client, const std::string& username, Minecraft* mc)
         : NetHandler(client, mc), username(username) { }
 
@@ -48,12 +46,12 @@ public:
                 client->setHandler(playHandler);
                 break;
             }
-            // case 0x03: { // Enable compression
-            //     const auto p = S03PacketEnableCompression::deserialize(packet.data);
-            //     client->stream_.setCompression(p.compressionThreshold);
-            //     std::cout << "[Login] Enable compression: " << p.compressionThreshold << "\n";
-            //     break;
-            // }
+            case 0x03: { // Enable compression
+                const auto p = S03PacketEnableCompression::deserialize(packet.data);
+                client->stream_.setCompression(p.compressionThreshold);
+                std::cout << "[Login] Enable compression: " << p.compressionThreshold << "\n";
+                break;
+            }
             default:
                 // std::cout << "[Login] Unknown packet ID: 0x" << std::hex << packet.id << "\n";
                 break;
@@ -62,15 +60,8 @@ public:
 
     [[nodiscard]] const char* getName() const override { return "NetHandlerLogin"; }
 
-    [[nodiscard]] bool preManage(const ClientBoundPacket &packet) const override {
-        if (packet.id == 0x03 && !receivedCompPacket) {
-            receivedCompPacket = true;
-            const S03PacketEnableCompression compPacket = S03PacketEnableCompression::deserialize(packet.data);
-            client->stream_.setCompression(compPacket.compressionThreshold);
-            // std::cout << "[Login] Enable compression: " << compPacket.compressionThreshold << "\n";
-            return true; // don't enqueue the Set Compression packet
-        }
-        return false;
+    bool isDone() const override {
+        return true; // unused
     }
 
 };

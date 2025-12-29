@@ -26,7 +26,7 @@ public:
     uint8_t maxPlayers = 1;
 
     Timer* timer = new Timer();
-    World* world = new World();
+    World* world = nullptr;
     std::shared_ptr<EntityPlayer> player = std::make_shared<EntityPlayer>(this, 0.5, 1, 0.5);
 
     Camera* camera = new Camera(0, 0, 0, player);
@@ -53,7 +53,7 @@ public:
         textShader = new Shader("assets/shaders/text.vert", "assets/shaders/text.frag");
         fontRenderer = new FontRenderer("assets/minecraft/textures/font/ascii.png", textShader);
 
-        world->entities.push_back(player);
+        // world->entities.push_back(player);
 
         // // Generate some test world
         // for (int x=-16;x<16;x++) {
@@ -75,11 +75,11 @@ public:
         //     world->setBlockAt(3 + i, 1, 4, Material::Ice);
         // }
         //
-        world->setBlockAt(-196, 69, 254, Material::Dirt);
-        for (auto &val: world->chunks | std::views::values) {
-            val.generateMesh(renderer->blockAtlas);
-            val.uploadMesh();
-        }
+        // world->setBlockAt(-196, 69, 254, Material::Dirt);
+        // for (auto &val: world->chunks | std::views::values) {
+        //     val.generateMesh(renderer->blockAtlas);
+        //     val.uploadMesh();
+        // }
 
         if (!serverIp.empty()) {
             netClient = new NetClient(serverIp, serverPort, player->username);
@@ -108,10 +108,7 @@ public:
         return renderer->height;
     }
 
-    void displayGuiScreen(Gui* gui) const {
-        currentScreen = gui;
-        // gui->onOpen();
-    }
+    void displayGuiScreen(Gui* gui) const;
 
     void init() const {
         running = true;
@@ -154,6 +151,7 @@ public:
                 frames = 0;
                 lastFpsTime = now;
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 

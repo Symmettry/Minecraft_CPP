@@ -23,17 +23,17 @@ struct NetClient {
 
     void disconnect();
 
-    bool pollPacket(ClientBoundPacket &packet);
-
     bool sendPacket(const ServerBoundPacket &packet) const;
-
-    void tick();
 
     [[nodiscard]] std::string host() const;
     [[nodiscard]] uint16_t port() const;
 
     void setHandler(const std::shared_ptr<NetHandler> & handler) {
         handler_ = handler;
+    }
+
+    bool isHandlerDone() const {
+        return handler_->isDone();
     }
 
     PacketStream stream_;
@@ -43,12 +43,11 @@ private:
     std::string username_;
 
     std::thread netThread_;
-    std::queue<ClientBoundPacket> packetQueue_;
     std::mutex queueMutex_;
     std::atomic<bool> running_;
 
     std::shared_ptr<NetHandler> handler_;
 
-    void networkLoop();
+    void networkLoop() const;
 
 };

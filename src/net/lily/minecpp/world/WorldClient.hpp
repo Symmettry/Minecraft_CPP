@@ -7,7 +7,7 @@
 #include "World.hpp"
 #include "WorldSettings.hpp"
 
-struct NetHandlerPlay;
+class NetHandlerPlay;
 
 class WorldClient : public World {
     const NetHandlerPlay *sendQueue;

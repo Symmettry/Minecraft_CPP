@@ -39,7 +39,8 @@ public:
             stream << std::uppercase;
         }
         stream << static_cast<std::make_unsigned_t<T>>(value);
-        return stream.str();
+        std::string str = stream.str();
+        return str.length() == 1 ? "0" + str : str;
     }
 };
 

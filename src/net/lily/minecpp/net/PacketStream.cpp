@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 #include <zlib.h>
 
+#include "net/lily/minecpp/util/Math.hpp"
+
 PacketStream::PacketStream(Connection& conn) : conn_(conn) {}
 
 void PacketStream::writeVarInt(uint32_t value, std::vector<uint8_t>& buffer) {
@@ -19,6 +21,8 @@ void PacketStream::writeVarInt(uint32_t value, std::vector<uint8_t>& buffer) {
 }
 
 bool PacketStream::sendPacket(const uint32_t packetId, const std::vector<uint8_t> &data) const {
+    printf("[NetClient] Sent packet C%s\n", Math::toHexString(packetId, true).c_str());
+
     std::vector<uint8_t> payload;
     writeVarInt(packetId, payload);
     payload.insert(payload.end(), data.begin(), data.end());
@@ -59,68 +63,69 @@ bool PacketStream::sendPacket(const uint32_t packetId, const std::vector<uint8_t
     return conn_.sendBytes(totalPacket);
 }
 
-bool PacketStream::receivePacket(uint32_t &packetId, std::vector<uint8_t> &data) const {
+bool PacketStream::receivePacket(uint32_t& packetId, std::vector<uint8_t>& data) const {
     static std::vector<uint8_t> recvBuffer;
 
     if (!conn_.isConnected()) return false;
 
-    uint8_t tmp[1024];
-    ssize_t recvd = ::recv(conn_.sockfd_, tmp, sizeof(tmp), 0);
-    if (recvd <= 0) return false;
-
-    recvBuffer.insert(recvBuffer.end(), tmp, tmp + recvd);
+    uint8_t tmp[4096];
+    const ssize_t recvd = ::recv(conn_.sockfd_, tmp, sizeof(tmp), MSG_DONTWAIT);
+    if (recvd > 0) {
+        recvBuffer.insert(recvBuffer.end(), tmp, tmp + recvd);
+    }
 
     size_t offset = 0;
+    uint32_t packetLength = 0;
 
-    uint32_t packetLength;
     if (!readVarInt(recvBuffer, offset, packetLength)) return false;
     if (recvBuffer.size() < offset + packetLength) return false;
 
     const size_t packetStart = offset;
+    size_t payloadOffset = offset;
 
     if (compressionEnabled_) {
-        uint32_t dataLength;
-        if (!readVarInt(recvBuffer, offset, dataLength)) return false;
+        uint32_t dataLength = 0;
+        if (!readVarInt(recvBuffer, payloadOffset, dataLength)) return false;
+
+        const size_t compressedSize =
+            packetLength - (payloadOffset - packetStart);
 
         if (dataLength != 0) {
-            std::vector compressedData(
-                recvBuffer.begin() + LONG(offset),
-                recvBuffer.begin() + LONG(packetStart) + packetLength
-            );
-
             data.resize(dataLength);
 
             z_stream zs{};
-            zs.next_in = compressedData.data();
-            zs.avail_in = compressedData.size();
+            zs.next_in = recvBuffer.data() + payloadOffset;
+            zs.avail_in = compressedSize;
             zs.next_out = data.data();
             zs.avail_out = data.size();
 
-            if (inflateInit(&zs) != Z_OK) throw std::runtime_error("zlib init failed");
-            if (inflate(&zs, Z_FINISH) != Z_STREAM_END) {
-                inflateEnd(&zs);
-                throw std::runtime_error("zlib inflate failed");
-            }
+            if (inflateInit(&zs) != Z_OK) return false;
+            const int res = inflate(&zs, Z_FINISH);
             inflateEnd(&zs);
+
+            if (res != Z_STREAM_END) return false;
         } else {
             data.assign(
-                recvBuffer.begin() + LONG(offset),
-                recvBuffer.begin() + LONG(packetStart) + packetLength
+                recvBuffer.begin() + payloadOffset,
+                recvBuffer.begin() + payloadOffset + compressedSize
             );
         }
     } else {
         data.assign(
-            recvBuffer.begin() + LONG(offset),
-            recvBuffer.begin() + LONG(packetStart) + packetLength
+            recvBuffer.begin() + payloadOffset,
+            recvBuffer.begin() + payloadOffset + packetLength
         );
     }
 
     size_t dataOffset = 0;
     if (!readVarInt(data, dataOffset, packetId)) return false;
 
-    data = std::vector(data.begin() + LONG(dataOffset), data.end());
+    data.erase(data.begin(), data.begin() + dataOffset);
 
-    recvBuffer.erase(recvBuffer.begin(), recvBuffer.begin() + LONG(packetStart) + packetLength);
+    recvBuffer.erase(
+        recvBuffer.begin(),
+        recvBuffer.begin() + packetStart + packetLength
+    );
 
     return true;
 }

@@ -10,6 +10,7 @@
 
 #include "net/lily/minecpp/Minecraft.hpp"
 #include "net/lily/minecpp/menu/Gui.hpp"
+#include "net/lily/minecpp/net/packets/play/NetHandlerPlay.hpp"
 #include "net/lily/minecpp/util/ChatHistory.hpp"
 
 class GuiIngame : public Gui {
@@ -72,9 +73,9 @@ public:
     }
 
     void tick() const override {
+        if (!mc->world || !mc->netClient->isHandlerDone()) return;
         mc->input->updateMouse();
         mc->world->update();
-        if (mc->netClient) mc->netClient->tick();
     }
 
 };

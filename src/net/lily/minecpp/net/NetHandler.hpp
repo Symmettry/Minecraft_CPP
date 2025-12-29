@@ -21,9 +21,8 @@ public:
     virtual void tick() {}
     [[nodiscard]] virtual const char* getName() const { return "NetHandler"; }
 
-    [[nodiscard]] virtual bool preManage(const ClientBoundPacket & packet) const {
-        return false;
-    }
+    [[nodiscard]] virtual bool isDone() const = 0;
+
 };
 
 

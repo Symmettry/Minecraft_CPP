@@ -68,7 +68,7 @@ public:
     bool sneaking = false;
     bool sprinting = false;
 
-    float health = 0.0f;
+    float health = 10.0f;
 
     [[nodiscard]] virtual float getAIMoveSpeed() const { return 1.0f; }
     [[nodiscard]] virtual double getEyeHeight() const { return 1.62; }
