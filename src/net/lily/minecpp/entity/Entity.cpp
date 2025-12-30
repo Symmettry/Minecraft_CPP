@@ -147,7 +147,7 @@ void Entity::moveEntityWithHeading(const float strafe, const float forward) {
         velocity.y = 0.2;
     }
 
-    if (false && !mc->world->isChunkAtLoaded(position.x, position.y)) {
+    if (!mc->world->isChunkAtLoaded(position.x, position.y)) {
         if (position.y > 0.0) {
             velocity.y = -0.1;
         } else {

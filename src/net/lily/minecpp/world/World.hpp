@@ -132,9 +132,6 @@ public:
     }
 
     [[nodiscard]] bool isChunkAtLoaded(const double x, const double z) const {
-        for (auto& chunk : chunks) {
-            printf("chunk at %d %d\n", chunk.first.x, chunk.first.z);
-        }
         return getLoadedChunkAt(x, z) != nullptr;
     }
 };
