@@ -48,7 +48,7 @@ public:
         renderer->init();
 
         input = new Input(renderer->window);
-        settings = new GameSettings(renderer->window);
+        settings = new GameSettings(renderer->window, this);
 
         textShader = new Shader("assets/shaders/text.vert", "assets/shaders/text.frag");
         fontRenderer = new FontRenderer("assets/minecraft/textures/font/ascii.png", textShader);

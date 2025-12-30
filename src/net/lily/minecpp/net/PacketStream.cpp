@@ -3,6 +3,7 @@
 #include "PacketStream.hpp"
 #include <vector>
 #include <cstdint>
+#include <iostream>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <zlib.h>
@@ -66,44 +67,65 @@ bool PacketStream::sendPacket(const uint32_t packetId, const std::vector<uint8_t
 bool PacketStream::receivePacket(uint32_t& packetId, std::vector<uint8_t>& data) const {
     static std::vector<uint8_t> recvBuffer;
 
-    if (!conn_.isConnected()) return false;
+    if (!conn_.isConnected()) {
+        std::cerr << "Error reading packet; not connected to server" << std::endl;
+        return false;
+    }
 
-    uint8_t tmp[4096];
+    uint8_t tmp[1048576];
     const ssize_t recvd = ::recv(conn_.sockfd_, tmp, sizeof(tmp), MSG_DONTWAIT);
     if (recvd > 0) {
         recvBuffer.insert(recvBuffer.end(), tmp, tmp + recvd);
     }
 
-    size_t offset = 0;
     uint32_t packetLength = 0;
-
-    if (!readVarInt(recvBuffer, offset, packetLength)) return false;
-    if (recvBuffer.size() < offset + packetLength) return false;
+    size_t offset = 0;
+    if (!readVarInt(recvBuffer, offset, packetLength)) {
+        // not enough data yet, wait for more
+        return false;
+    }
+    if (recvBuffer.size() < offset + packetLength) {
+        // packet incomplete, wait for more data
+        return false;
+    }
 
     const size_t packetStart = offset;
     size_t payloadOffset = offset;
 
     if (compressionEnabled_) {
         uint32_t dataLength = 0;
-        if (!readVarInt(recvBuffer, payloadOffset, dataLength)) return false;
+        if (!readVarInt(recvBuffer, payloadOffset, dataLength)) {
+            std::cerr << "Error reading packet; buffer size issue" << std::endl;
+            return false;
+        }
 
-        const size_t compressedSize =
-            packetLength - (payloadOffset - packetStart);
+        const size_t compressedSize = packetLength - (payloadOffset - packetStart);
 
         if (dataLength != 0) {
             data.resize(dataLength);
 
             z_stream zs{};
             zs.next_in = recvBuffer.data() + payloadOffset;
-            zs.avail_in = compressedSize;
+            zs.avail_in = static_cast<uInt>(compressedSize);
             zs.next_out = data.data();
-            zs.avail_out = data.size();
+            zs.avail_out = dataLength;
 
-            if (inflateInit(&zs) != Z_OK) return false;
-            const int res = inflate(&zs, Z_FINISH);
+            if (inflateInit(&zs) != Z_OK) {
+                std::cerr << "inflateInit failed" << std::endl;
+                return false;
+            }
+
+            int ret;
+            do {
+                ret = inflate(&zs, Z_NO_FLUSH);
+                if (ret != Z_OK && ret != Z_STREAM_END) {
+                    std::cerr << "inflate failed: " << ret << std::endl;
+                    inflateEnd(&zs);
+                    return false;
+                }
+            } while (ret != Z_STREAM_END);
+
             inflateEnd(&zs);
-
-            if (res != Z_STREAM_END) return false;
         } else {
             data.assign(
                 recvBuffer.begin() + payloadOffset,
@@ -118,7 +140,10 @@ bool PacketStream::receivePacket(uint32_t& packetId, std::vector<uint8_t>& data)
     }
 
     size_t dataOffset = 0;
-    if (!readVarInt(data, dataOffset, packetId)) return false;
+    if (!readVarInt(data, dataOffset, packetId)) {
+        std::cerr << "Error reading packet; buffer size issue" << std::endl;
+        return false;
+    }
 
     data.erase(data.begin(), data.begin() + dataOffset);
 

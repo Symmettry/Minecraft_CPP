@@ -53,7 +53,8 @@ void Renderer::init() {
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
     glViewport(0, 0, fbWidth, fbHeight);
 
-    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
+
 
     blockShader = new Shader("assets/shaders/basic.vert", "assets/shaders/basic.frag");
 
@@ -191,7 +192,7 @@ void Renderer::render(const World* world) const {
     );
 
     const float yaw   = glm::radians(camera->getRotY(partialTicks));
-    const float pitch = glm::radians(std::clamp<float>(camera->getRotX(partialTicks), -89.95f, 89.95f));
+    const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.95f, 89.95f));
 
     glm::vec3 front;
     front.x = std::cos(yaw) * std::cos(pitch);
@@ -206,8 +207,15 @@ void Renderer::render(const World* world) const {
 
     glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
     for (const auto& [fst, snd] : world->chunks) {
-        const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(fst.x * CHUNK_SIZE, 0, fst.z * CHUNK_SIZE));
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(fst.x * CHUNK_SIZE, 0, fst.z * CHUNK_SIZE));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         blockShader->setMat4("model", glm::value_ptr(model));
         snd.draw();
+        printf("Drawing chunk at %d %d\n", fst.x, fst.z);
+    }
+
+    GLenum err;
+    while((err = glGetError()) != GL_NO_ERROR) {
+        std::cerr << "OpenGL error: " << err << "\n";
     }
 }

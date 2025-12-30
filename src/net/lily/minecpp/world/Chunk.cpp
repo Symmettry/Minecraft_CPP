@@ -137,10 +137,15 @@ void Chunk::uploadMesh() {
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
+
+    std::cout << "Uploading mesh for chunk " << chunkX << ", " << chunkZ
+          << " vertices: " << meshData.vertices.size()
+          << " indices: " << meshData.indices.size() << "\n";
 }
 
 void Chunk::draw() const {
-    if (meshData.indices.empty()) return;
+    if (meshData.indices.empty())
+        return;
 
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, LONG(meshData.indices.size()), GL_UNSIGNED_INT, nullptr);

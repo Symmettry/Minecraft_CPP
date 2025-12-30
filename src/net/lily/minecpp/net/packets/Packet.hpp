@@ -12,7 +12,7 @@ class Packet {
 public:
     uint32_t id = 0;
 
-    explicit Packet(uint32_t id) : id(id) {}
+    explicit Packet(const uint32_t id) : id(id) {}
     virtual ~Packet() = default;
 
     static uint32_t readVarInt(const std::vector<uint8_t>& data, size_t& offset) {
@@ -23,7 +23,7 @@ public:
         while (true) {
             if (offset >= data.size()) throw std::runtime_error("readVarInt: offset exceeds buffer size");
 
-            uint8_t byte = data[offset++];
+            const uint8_t byte = data[offset++];
             value |= (byte & 0x7F) << shift;
 
             if (!(byte & 0x80)) break;
@@ -98,7 +98,7 @@ public:
         return value;
     }
 
-    static void writeDouble(double value, std::vector<uint8_t>& buffer) {
+    static void writeDouble(const double value, std::vector<uint8_t>& buffer) {
         uint64_t bits;
         std::memcpy(&bits, &value, sizeof(double));
         for (int i = 7; i >= 0; --i) {
@@ -106,12 +106,19 @@ public:
         }
     }
 
-    static void writeFloat(float value, std::vector<uint8_t>& buffer) {
+    static void writeFloat(const float value, std::vector<uint8_t>& buffer) {
         uint32_t bits;
         std::memcpy(&bits, &value, sizeof(float));
         for (int i = 3; i >= 0; --i) {
             buffer.push_back(static_cast<uint8_t>((bits >> (i * 8)) & 0xFF));
         }
+    }
+
+    static void writeByte(const int value, std::vector<uint8_t>& buffer) {
+        buffer.push_back(value);
+    }
+    static void writeBool(const bool value, std::vector<uint8_t>& buffer) {
+        writeByte(value ? 1 : 0, buffer);
     }
 
     static int32_t readInt(const std::vector<uint8_t>& data, size_t& offset) {

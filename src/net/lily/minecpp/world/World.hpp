@@ -67,6 +67,8 @@ public:
 
     void update() const;
 
+    static const AirBlock* airBlock;
+
     void setBlockAt(const int worldX, const int worldY, const int worldZ, const Material type) const {
         if (worldY < 0 || worldY >= WORLD_HEIGHT) return;
 
@@ -114,7 +116,7 @@ public:
         return getBlockAt(vec.x, vec.y, vec.z);
     }
     const Block* getBlockAt(const int worldX, const int worldY, const int worldZ) const {
-        if (worldY < 0 || worldY >= WORLD_HEIGHT) return nullptr;
+        if (worldY < 0 || worldY >= WORLD_HEIGHT) return airBlock;
 
         int localX = worldX % CHUNK_SIZE;
         if (localX < 0) localX += CHUNK_SIZE;
@@ -130,10 +132,9 @@ public:
     }
 
     [[nodiscard]] bool isChunkAtLoaded(const double x, const double z) const {
-        const int chunkX = std::floor(static_cast<float>(x) / CHUNK_SIZE);
-        const int chunkZ = std::floor(static_cast<float>(z) / CHUNK_SIZE);
-
-        const ChunkCoord coord{chunkX, chunkZ};
-        return chunks.contains(coord);
+        for (auto& chunk : chunks) {
+            printf("chunk at %d %d\n", chunk.first.x, chunk.first.z);
+        }
+        return getLoadedChunkAt(x, z) != nullptr;
     }
 };

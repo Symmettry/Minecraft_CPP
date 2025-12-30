@@ -16,7 +16,7 @@ public:
     std::vector<uint8_t> serialize() const override {
         std::vector<uint8_t> buffer;
         // C03 only sends onGround
-        buffer.push_back(onGround ? 1 : 0);
+        writeBool(onGround, buffer);
         return buffer;
     }
 };
@@ -36,7 +36,7 @@ public:
         writeDouble(x, buffer);
         writeDouble(y, buffer);
         writeDouble(z, buffer);
-        buffer.push_back(onGround ? 1 : 0);
+        writeBool(onGround, buffer);
         return buffer;
     }
 };
@@ -54,15 +54,15 @@ public:
         std::vector<uint8_t> buffer;
         writeFloat(yaw, buffer);
         writeFloat(pitch, buffer);
-        buffer.push_back(onGround ? 1 : 0);
+        writeBool(onGround, buffer);
         return buffer;
     }
 };
 
 class C06PacketPlayerPosLook : public C03PacketPlayer {
 public:
-    C06PacketPlayerPosLook(double playerX, double playerY, double playerZ,
-                           float playerYaw, float playerPitch, bool playerIsOnGround)
+    C06PacketPlayerPosLook(const double playerX, const double playerY, const double playerZ,
+                           const float playerYaw, const float playerPitch, const bool playerIsOnGround)
         : C03PacketPlayer(playerIsOnGround) {
         id = 0x06;
         x = playerX;
@@ -79,7 +79,7 @@ public:
         writeDouble(z, buffer);
         writeFloat(yaw, buffer);
         writeFloat(pitch, buffer);
-        buffer.push_back(onGround ? 1 : 0);
+        writeBool(onGround, buffer);
         return buffer;
     }
 };

@@ -18,3 +18,28 @@ struct ChatHistory {
         }
     }
 };
+
+struct EnumChatVisibility {
+    enum Value {
+        FULL,
+        SYSTEM,
+        HIDDEN,
+    } value;
+
+    static Value fromId(const int id) {
+        switch (id) {
+            case 0: return FULL;
+            case 1: return SYSTEM;
+            case 2: return HIDDEN;
+            default: throw std::runtime_error("Enum Chat Visibility id out of bounds");
+        }
+    }
+    static int toId(const Value value) {
+        switch (value) {
+            case FULL: return 0;
+            case SYSTEM: return 1;
+            case HIDDEN: return 2;
+            default: throw std::runtime_error("This shouldn't have happened.");
+        }
+    }
+};

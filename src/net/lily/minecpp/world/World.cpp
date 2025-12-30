@@ -9,6 +9,8 @@ void World::update() const {
     }
 }
 
+const AirBlock* World::airBlock = new AirBlock(0,0,0);
+
 std::vector<const Block *> World::getCollidingBlocks(const AABB &box) const {
     std::vector<const Block*> collisions;
 

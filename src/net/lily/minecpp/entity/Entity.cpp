@@ -64,9 +64,8 @@ const Block* Entity::getBlockBelow() const {
     return mc->world->getBlockAt(std::floor(position.x), static_cast<int>(std::floor(getBoundingBox().minY)) - 1, std::floor(position.z));
 }
 
-void Entity::moveEntityWithHeading(float strafe, float forward) {
+void Entity::moveEntityWithHeading(const float strafe, const float forward) {
     if (isInLava()) {
-        double d1 = position.y;
         moveFlying(strafe, forward, 0.02f);
         velocity.x *= 0.5;
         velocity.y *= 0.5;
@@ -77,7 +76,6 @@ void Entity::moveEntityWithHeading(float strafe, float forward) {
         return;
     }
     if (isInWater()) {
-        double d0 = position.y;
         float f1 = 0.8F;
         float f2 = 0.02F;
         // float f3 = static_cast<float>(EnchantmentHelper.getDepthStriderModifier(this));
@@ -116,7 +114,7 @@ void Entity::moveEntityWithHeading(float strafe, float forward) {
         f4 = getBlockBelow()->slipperiness() * 0.91f;
     }
 
-    float f = 0.16277136F / (f4 * f4 * f4);
+    const float f = 0.16277136F / (f4 * f4 * f4);
     float f5 = onGround ? getAIMoveSpeed() * f : jumpMovementFactor;
 
     if (isSprinting()) f5 *= 1.3f;
@@ -129,7 +127,7 @@ void Entity::moveEntityWithHeading(float strafe, float forward) {
     }
 
     if (isOnLadder()) {
-        float f6 = 0.15f;
+        constexpr float f6 = 0.15f;
         velocity.x = std::clamp(velocity.x, static_cast<double>(-f6), static_cast<double>(f6));
         velocity.z = std::clamp(velocity.z, static_cast<double>(-f6), static_cast<double>(f6));
         fallDistance = 0.0f;
@@ -138,8 +136,7 @@ void Entity::moveEntityWithHeading(float strafe, float forward) {
             velocity.y = -0.15;
         }
 
-        bool flag = isSneaking() && dynamic_cast<EntityPlayer*>(this);
-        if (flag && velocity.y < 0.0) {
+        if (isSneaking() && dynamic_cast<EntityPlayer*>(this) && velocity.y < 0.0) {
             velocity.y = 0.0;
         }
     }
@@ -150,7 +147,7 @@ void Entity::moveEntityWithHeading(float strafe, float forward) {
         velocity.y = 0.2;
     }
 
-    if (!mc->world->isChunkAtLoaded(position.x, position.y)) {
+    if (false && !mc->world->isChunkAtLoaded(position.x, position.y)) {
         if (position.y > 0.0) {
             velocity.y = -0.1;
         } else {
@@ -176,10 +173,10 @@ void Entity::moveFlying(float strafe, float forward, const float friction) const
     strafe *= f;
     forward *= f;
 
-    float f1 = std::sin(rotation.yaw * static_cast<float>(M_PI / 180.0f));
-    float f2 = std::cos(rotation.yaw * static_cast<float>(M_PI / 180.0f));
-    velocity.x += forward * f2 - strafe * f1;
-    velocity.z += forward * f1 + strafe * f2;
+    const float f1 = std::sin(rotation.yaw * static_cast<float>(M_PI / 180.0f));
+    const float f2 = std::cos(rotation.yaw * static_cast<float>(M_PI / 180.0f));
+    velocity.x += strafe * f2 - forward * f1;
+    velocity.z += forward * f2  + strafe * f1;
 }
 
 void Entity::moveEntity(double dx, double dy, double dz) {
@@ -439,11 +436,10 @@ void Entity::setPosition(const double x, const double y, const double z) const {
     boundingBox = AABB{position.x - width/2, position.y, position.z - width/2, position.x + width/2, position.y + height, position.z + width/2};
 }
 void Entity::setRotation(const float yaw, const float pitch) const {
-    lastRot.yaw = rotation.yaw = yaw;
-    lastRot.pitch = rotation.pitch = pitch;
+    lastRot.yaw = rotation.yaw = std::fmod(yaw, 360.0f);
+    lastRot.pitch = rotation.pitch = std::fmod(pitch, 360.0f);
 }
 void Entity::setPositionAndRotation(const double x, const double y, const double z, const float yaw, const float pitch) const {
-    printf("Teleported to %f, %f, %f - %f %f\n", x, y, z, yaw, pitch);
     setPosition(x, y, z);
     setRotation(yaw, pitch);
 }

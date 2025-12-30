@@ -21,13 +21,11 @@ public:
         if (buffer.size() < 1) throw std::runtime_error("Buffer too small for S26 header");
         packet.isOverworld = buffer[offset++] != 0;
 
-        // readVarInt for chunk count
-        uint32_t count = Packet::readVarInt(buffer, offset);
+        const uint32_t count = readVarInt(buffer, offset);
         packet.xPositions.resize(count);
         packet.zPositions.resize(count);
         packet.chunksData.resize(count);
 
-        // Read headers
         for (uint32_t i = 0; i < count; ++i) {
             if (offset + 8 + 2 > buffer.size()) 
                 throw std::runtime_error("Buffer too small for chunk headers");
@@ -43,19 +41,18 @@ public:
             packet.chunksData[i].dataSize = (buffer[offset] << 8) | buffer[offset + 1];
             offset += 2;
 
-            size_t dataLength = S21PacketChunkData::func_180737_a(
+            const size_t dataLength = S21PacketChunkData::func_180737_a(
                 __builtin_popcount(packet.chunksData[i].dataSize),
                 packet.isOverworld, true
             );
             packet.chunksData[i].data.resize(dataLength);
         }
 
-        // Read chunk data
         for (uint32_t i = 0; i < count; ++i) {
             if (offset + packet.chunksData[i].data.size() > buffer.size())
                 throw std::runtime_error("Buffer too small for chunk data");
-            std::copy(buffer.begin() + offset,
-                      buffer.begin() + offset + packet.chunksData[i].data.size(),
+            std::copy_n(buffer.begin() + offset,
+                      packet.chunksData[i].data.size(),
                       packet.chunksData[i].data.begin());
             offset += packet.chunksData[i].data.size();
         }
@@ -67,15 +64,15 @@ public:
         return xPositions.size();
     }
 
-    const S21PacketChunkData::Extracted& getChunkData(uint32_t index) const {
+    const S21PacketChunkData::Extracted& getChunkData(const uint32_t index) const {
         return chunksData.at(index);
     }
 
-    int getChunkX(uint32_t index) const {
+    int getChunkX(const uint32_t index) const {
         return xPositions.at(index);
     }
 
-    int getChunkZ(uint32_t index) const {
+    int getChunkZ(const uint32_t index) const {
         return zPositions.at(index);
     }
 };

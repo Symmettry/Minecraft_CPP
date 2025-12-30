@@ -45,7 +45,7 @@ public:
 
     void setPositionAndRotation(double x, double y, double z, float yaw, float pitch) const;
 
-    bool onGround = true, noClip = false, isInWeb = false, isAirBorne = false;
+    bool onGround = false, noClip = false, isInWeb = false, isAirBorne = false;
     float fallDistance = 0.0f, jumpMovementFactor = 0.02f, stepHeight = 0.6f;
     float width = 0.6f, height = 1.8f;
 
@@ -69,6 +69,8 @@ public:
     bool sprinting = false;
 
     float health = 10.0f;
+
+    Entity* ridingEntity{};
 
     [[nodiscard]] virtual float getAIMoveSpeed() const { return 1.0f; }
     [[nodiscard]] virtual double getEyeHeight() const { return 1.62; }

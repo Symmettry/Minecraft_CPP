@@ -5,6 +5,11 @@
 #include "net/lily/minecpp/net/packets/play/client/C03PacketPlayer.hpp"
 
 void EntityPlayer::update() {
+    if (suppressPhysics) {
+        suppressPhysics = false;
+        return;
+    }
+
     // fallback for falling out of the world
     if (position.y < -10) {
         setPosition(0, 1, 0);
@@ -39,7 +44,7 @@ void EntityPlayer::update() {
     const bool rotChange = d3 != 0.0 || d4 != 0.0;
     bool posChange = d0 * d0 + d1 * d1 + d2 * d2 > 9.0E-4 || positionUpdateTicks >= 20;
 
-    if (/*ridingEntity == null*/ true) {
+    if (ridingEntity == nullptr) {
         if (posChange && rotChange) {
             mc->netClient->sendPacket(C06PacketPlayerPosLook{position.x, getBoundingBox().minY, position.z, rotation.yaw, rotation.pitch, onGround});
         } else if (posChange) {
@@ -99,7 +104,7 @@ void EntityPlayer::handleMouseLook() {
     const float deltaY = rawDY * f * f * f * 8.0f;
 
     rotation.yaw += deltaX;
-    rotation.pitch -= deltaY;
+    rotation.pitch += deltaY;
     rotation.pitch = std::clamp(rotation.pitch, -90.0f, 90.0f);
 }
 

@@ -23,15 +23,12 @@ void Minecraft::runTick() const {
 void Minecraft::displayGuiScreen(Gui* gui) const {
     if (!gui) {
         if (world == nullptr) {
-            printf("Going to main menu");
             gui = new GuiMainMenu();
         } else if (player->health <= 0.0f) {
             // <set to death screen> todo
-            printf("Blehhhh\n");
         } else {
             if (!ingameGui) ingameGui = new GuiIngame();
             gui = ingameGui;
-            printf("Going to in game gui\n");
         }
     }
 

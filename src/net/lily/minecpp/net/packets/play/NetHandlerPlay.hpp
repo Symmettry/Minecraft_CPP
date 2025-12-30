@@ -47,7 +47,7 @@ public:
         client->sendPacket(C00PacketKeepAlive{key});
     }
 
-    void processChunk(const int cx, const int cz, const std::vector<uint8_t>& data) const {
+    void processChunk(const int cx, const int cz, const std::vector<uint8_t>& data, const bool genMesh) const {
         const auto chunk = mc->world->getOrMakeChunk(cx, cz);
         size_t offset = 0;
 
@@ -68,8 +68,10 @@ public:
             }
         }
 
-        chunk->generateMesh(mc->renderer->blockAtlas);
-        chunk->uploadMesh();
+        if (genMesh) {
+            chunk->generateMesh(mc->renderer->blockAtlas);
+            chunk->uploadMesh();
+        }
     }
 
     void handleKeepAlive(const S00PacketKeepAlive& p) const {
@@ -87,7 +89,7 @@ public:
         mc->settings->difficulty = packet.difficulty;
         mc->maxPlayers = packet.maxPlayers;
 
-        // client->sendPacket(C15PacketClientSettings{mc->settings->language, mc->settings->renderDistance, mc->settings->chatVisibility, mc->settings->chatColors, mc->settings->partMask()});
+        mc->settings->sendSettingsToServer();
         client->sendPacket(C17PacketCustomPayload{"MC|BRAND", "vanilla"});
     }
 
@@ -137,9 +139,9 @@ public:
         mc->player->setPositionAndRotation(sx, sy, sz, syaw, spitch);
         client->sendPacket(C06PacketPlayerPosLook{sx, sy, sz, syaw, spitch, false});
 
-        printf("Done loading terrain? %d\n", doneLoadingTerrain);
+        mc->player->suppressPhysics = true;
+
         if (!doneLoadingTerrain) {
-            printf("Loading gui in game\n");
             mc->player->lastPos = mc->player->position;
             doneLoadingTerrain = true;
             mc->displayGuiScreen(nullptr);
@@ -155,13 +157,17 @@ public:
     }
 
     void handleChunkData(const S21PacketChunkData& p) const {
-        processChunk(p.chunkX, p.chunkZ, p.getData());
+        processChunk(p.chunkX, p.chunkZ, p.getData(), true);
     }
 
     void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
         printf("Received bulk chunks\n");
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
-            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data);
+            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data, false);
+        }
+        for (auto &val: mc->world->chunks | std::views::values) {
+            val.generateMesh(mc->renderer->blockAtlas);
+            val.uploadMesh();
         }
     }
 
