@@ -14,7 +14,6 @@
 #include "render/FontRenderer.hpp"
 #include "util/GameSettings.hpp"
 #include "util/Inputs.hpp"
-#include "world/block/BlockRegistry.hpp"
 
 constexpr int _width = 800, _height = 800;
 
@@ -44,7 +43,6 @@ public:
 
     explicit Minecraft(const std::string& serverIp = "", uint16_t serverPort = 25565) {
 
-        BlockRegistry::initialize();
         renderer->init();
 
         input = new Input(renderer->window);
@@ -129,7 +127,7 @@ public:
                 timer->lastTick = now;
                 runTick();
             } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                // std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
     }
@@ -147,7 +145,7 @@ public:
             frames++;
 
             if (now - lastFpsTime >= std::chrono::seconds(1)) {
-                std::cout << "FPS: " << frames << std::endl;
+                renderer->fps = frames;
                 frames = 0;
                 lastFpsTime = now;
             }

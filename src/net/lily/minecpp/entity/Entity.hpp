@@ -7,7 +7,7 @@
 #include <algorithm>
 #include "net/lily/minecpp/util/AABB.hpp"
 #include "net/lily/minecpp/util/Rotation.hpp"
-#include "net/lily/minecpp/world/block/Block.hpp"
+#include "../world/chunk/Block.hpp"
 
 struct Minecraft;
 
@@ -33,7 +33,7 @@ public:
     void jump();
     void onLivingUpdate();
 
-    const Block *getBlockBelow() const;
+    Block getBlockBelow() const;
 
     AABB getBoundingBox() const;
 

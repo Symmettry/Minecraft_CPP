@@ -15,7 +15,6 @@ const Minecraft* Minecraft::getMinecraft() {
 void Minecraft::render() const {
     std::lock_guard lock(meshQueueMutex);
     for (const auto&[chunk] : meshUploadQueue) {
-        chunk->generateMesh(renderer->blockAtlas);
         chunk->uploadMesh();
     }
     meshUploadQueue.clear();

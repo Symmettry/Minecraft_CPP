@@ -22,7 +22,7 @@ void PacketStream::writeVarInt(uint32_t value, std::vector<uint8_t>& buffer) {
 }
 
 bool PacketStream::sendPacket(const uint32_t packetId, const std::vector<uint8_t> &data) const {
-    printf("[NetClient] Sent packet C%s\n", Math::toHexString(packetId, true).c_str());
+    // printf("[NetClient] Sent packet C%s\n", Math::toHexString(packetId, true).c_str());
 
     std::vector<uint8_t> payload;
     writeVarInt(packetId, payload);

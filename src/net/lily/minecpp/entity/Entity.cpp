@@ -35,10 +35,10 @@ void Entity::jump() {
 }
 
 bool Entity::isOnLadder() const {
-    int i = floor(position.x);
-    int j = floor(getBoundingBox().minY);
-    int k = floor(position.z);
-    const Block* block = mc->world->getBlockAt(i, j, k);
+    // int i = floor(position.x);
+    // int j = floor(getBoundingBox().minY);
+    // int k = floor(position.z);
+    // const Block block = mc->world->getBlockAt(i, j, k);
     // return net.minecraftforge.common.ForgeHooks.isLivingOnLadder(block, worldObj, new BlockPos(i, j, k), this);
     return false; // todo
 }
@@ -60,7 +60,7 @@ void Entity::onLivingUpdate() {
     if (std::abs(velocity.z) < 1e-5) velocity.z = 0.0;
 }
 
-const Block* Entity::getBlockBelow() const {
+Block Entity::getBlockBelow() const {
     return mc->world->getBlockAt(std::floor(position.x), static_cast<int>(std::floor(getBoundingBox().minY)) - 1, std::floor(position.z));
 }
 
@@ -111,7 +111,7 @@ void Entity::moveEntityWithHeading(const float strafe, const float forward) {
     float f4 = 0.91f;
 
     if (onGround) {
-        f4 = getBlockBelow()->slipperiness() * 0.91f;
+        f4 = getSlipperiness(getBlockBelow()) * 0.91f;
     }
 
     const float f = 0.16277136F / (f4 * f4 * f4);
@@ -123,7 +123,7 @@ void Entity::moveEntityWithHeading(const float strafe, const float forward) {
     f4 = 0.91f;
 
     if (onGround) {
-        f4 = getBlockBelow()->slipperiness() * 0.91f;
+        f4 = getSlipperiness(getBlockBelow()) * 0.91f;
     }
 
     if (isOnLadder()) {
@@ -147,7 +147,7 @@ void Entity::moveEntityWithHeading(const float strafe, const float forward) {
         velocity.y = 0.2;
     }
 
-    if (!mc->world->isChunkAtLoaded(position.x, position.y)) {
+    if (!mc->world->isChunkAtLoaded(position.x, position.z)) {
         if (position.y > 0.0) {
             velocity.y = -0.1;
         } else {
@@ -185,10 +185,6 @@ void Entity::moveEntity(double dx, double dy, double dz) {
         resetPositionToBB();
         return;
     }
-
-    double d0 = position.x;
-    double d1 = position.y;
-    double d2 = position.z;
 
     if (isInWeb)
     {
@@ -277,7 +273,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
     for (auto axisalignedbb1 : list1)
     {
-        dy = axisalignedbb1->calculateYOffset(getBoundingBox(), dy);
+        dy = axisalignedbb1.calculateYOffset(getBoundingBox(), dy);
     }
 
     setBoundingBox(getBoundingBox().offset(0.0, dy, 0.0));
@@ -285,14 +281,14 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
     for (auto axisalignedbb2 : list1)
     {
-        dx = axisalignedbb2->calculateXOffset(getBoundingBox(), dx);
+        dx = axisalignedbb2.calculateXOffset(getBoundingBox(), dx);
     }
 
     setBoundingBox(getBoundingBox().offset(dx, 0.0, 0.0));
 
     for (auto axisalignedbb13 : list1)
     {
-        dz = axisalignedbb13->calculateZOffset(getBoundingBox(), dz);
+        dz = axisalignedbb13.calculateZOffset(getBoundingBox(), dz);
     }
 
     setBoundingBox(getBoundingBox().offset(0.0, 0.0, dz));
@@ -312,7 +308,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
         for (auto axisalignedbb6 : list)
         {
-            d9 = axisalignedbb6->calculateYOffset(axisalignedbb5, d9);
+            d9 = axisalignedbb6.calculateYOffset(axisalignedbb5, d9);
         }
 
         axisalignedbb4 = axisalignedbb4.offset(0.0, d9, 0.0);
@@ -320,7 +316,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
         for (auto axisalignedbb7 : list)
         {
-            d15 = axisalignedbb7->calculateXOffset(axisalignedbb4, d15);
+            d15 = axisalignedbb7.calculateXOffset(axisalignedbb4, d15);
         }
 
         axisalignedbb4 = axisalignedbb4.offset(d15, 0.0, 0.0);
@@ -328,7 +324,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
         for (auto axisalignedbb8 : list)
         {
-            d16 = axisalignedbb8->calculateZOffset(axisalignedbb4, d16);
+            d16 = axisalignedbb8.calculateZOffset(axisalignedbb4, d16);
         }
 
         axisalignedbb4 = axisalignedbb4.offset(0.0, 0.0, d16);
@@ -337,7 +333,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
         for (auto axisalignedbb9 : list)
         {
-            d17 = axisalignedbb9->calculateYOffset(axisalignedbb14, d17);
+            d17 = axisalignedbb9.calculateYOffset(axisalignedbb14, d17);
         }
 
         axisalignedbb14 = axisalignedbb14.offset(0.0, d17, 0.0);
@@ -345,7 +341,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
         for (auto axisalignedbb10 : list)
         {
-            d18 = axisalignedbb10->calculateXOffset(axisalignedbb14, d18);
+            d18 = axisalignedbb10.calculateXOffset(axisalignedbb14, d18);
         }
 
         axisalignedbb14 = axisalignedbb14.offset(d18, 0.0, 0.0);
@@ -353,7 +349,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
         for (auto axisalignedbb11 : list)
         {
-            d19 = axisalignedbb11->calculateZOffset(axisalignedbb14, d19);
+            d19 = axisalignedbb11.calculateZOffset(axisalignedbb14, d19);
         }
 
         axisalignedbb14 = axisalignedbb14.offset(0.0, 0.0, d19);
@@ -377,7 +373,7 @@ void Entity::moveEntity(double dx, double dy, double dz) {
 
         for (auto axisalignedbb12 : list)
         {
-            dy = axisalignedbb12->calculateYOffset(getBoundingBox(), dy);
+            dy = axisalignedbb12.calculateYOffset(getBoundingBox(), dy);
         }
 
         setBoundingBox(getBoundingBox().offset(0.0, dy, 0.0));

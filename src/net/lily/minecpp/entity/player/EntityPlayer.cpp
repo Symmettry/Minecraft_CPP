@@ -35,6 +35,8 @@ void EntityPlayer::update() {
         serverSprintState = sprinting;
     }
 
+    onGround = true;
+
     if (!isCurrentViewEntity()) return;
     const double d0 = position.x - lastReportedPos.x;
     const double d1 = getBoundingBox().minY - lastReportedPos.y;
@@ -117,7 +119,12 @@ void EntityPlayer::handleKeyboardInput() {
     if (mc->settings->isKeyDown(mc->settings->moveLeft)) moveStrafe += 1.0f;
 
     setSneaking(mc->settings->isKeyDown(mc->settings->sneak));
-    isJumping = mc->settings->isKeyDown(mc->settings->jump);
+    if (mc->settings->isKeyDown(mc->settings->jump)) {
+        if (!isJumping) jumpTicks = 0;
+        isJumping = true;
+    } else {
+        isJumping = false;
+    }
 }
 
 void EntityPlayer::handleSprintToggle() {

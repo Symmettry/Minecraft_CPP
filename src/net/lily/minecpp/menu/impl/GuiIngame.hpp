@@ -40,6 +40,7 @@ public:
 
         fr->renderText(mc->player->coordinates(), 10, 10, 2.0f, 0xFFFFFFFF, true);
         fr->renderText(mc->player->rotations(), 10, 30, 2.0f, 0xFFFFFFFF, true);
+        fr->renderText("FPS: " + std::to_string(mc->renderer->fps), 10, 50, 2.0f, 0xFFFFFFFF, true);
 
         int i=0;
         for (const auto &[fst, snd] : ChatHistory::chatHistory) {

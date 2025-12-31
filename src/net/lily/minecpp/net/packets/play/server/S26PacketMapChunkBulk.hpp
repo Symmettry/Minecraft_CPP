@@ -51,7 +51,7 @@ public:
         for (uint32_t i = 0; i < count; ++i) {
             if (offset + packet.chunksData[i].data.size() > buffer.size())
                 throw std::runtime_error("Buffer too small for chunk data");
-            std::copy_n(buffer.begin() + offset,
+            std::ranges::copy_n(buffer.begin() + offset,
                       packet.chunksData[i].data.size(),
                       packet.chunksData[i].data.begin());
             offset += packet.chunksData[i].data.size();

@@ -57,8 +57,8 @@ void NetClient::networkLoop() const {
             handler_->handlePacket(packet);
 
             // Debug log
-            std::cout << "[NetClient] Received packet S" << Math::toHexString(packet.id, true)
-                      << ", length: " << packet.data.size() << "\n";
+            // std::cout << "[NetClient] Received packet S" << Math::toHexString(packet.id, true)
+            //           << ", length: " << packet.data.size() << "\n";
         } else {
             std::this_thread::sleep_for(std::chrono::milliseconds(1)); // prevent busy loop
         }

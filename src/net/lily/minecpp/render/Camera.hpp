@@ -4,6 +4,9 @@
 #define CAMERA_H
 
 #include <utility>
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
 
 #include "../entity/Entity.hpp"
 
@@ -34,6 +37,7 @@ struct Camera {
     [[nodiscard]] std::shared_ptr<Entity>& getRenderViewEntity() {
         return entity;
     }
+
 
 private:
     float x, y, z;

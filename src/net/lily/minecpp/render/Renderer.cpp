@@ -9,6 +9,10 @@
 #include "net/lily/minecpp/Minecraft.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "lib/stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "lib/stb_image_write.h"
+#include "net/lily/minecpp/util/ChatHistory.hpp"
+#include "net/lily/minecpp/util/FrustumPlanes.hpp"
 
 Renderer::~Renderer() {
     if (window) glfwDestroyWindow(window);
@@ -34,6 +38,7 @@ void Renderer::init() {
     }
 
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(0);
 
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
         std::cerr << "Failed to initialize GLAD\n";
@@ -53,8 +58,8 @@ void Renderer::init() {
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
     glViewport(0, 0, fbWidth, fbHeight);
 
-    glDisable(GL_DEPTH_TEST);
-
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     blockShader = new Shader("assets/shaders/basic.vert", "assets/shaders/basic.frag");
 
@@ -105,21 +110,49 @@ void Renderer::init() {
 
     updateProjection(fbWidth, fbHeight);
 
-    const auto atlasPixels = blockAtlas->createAtlas("assets/minecraft/textures/blocks/");
-
     constexpr int atlasSize = atlasTilesPerRow * atlasTileSize;
     glGenTextures(1, &blockAtlasTexture);
     glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, atlasSize, atlasSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, atlasPixels.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, atlasSize, atlasSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, blockAtlas.first.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    Chunk::boundShader = new Shader("assets/shaders/boundary.vert", "assets/shaders/boundary.frag");
 }
 
 void Renderer::processInput() const {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    static bool f6PressedLastFrame = false;
+    const bool f6Pressed = glfwGetKey(window, GLFW_KEY_F6) == GLFW_PRESS;
+
+    if (f6Pressed && !f6PressedLastFrame) {
+        freezeFrustum = !freezeFrustum;
+        ChatHistory::addChat("Freeze Frustum: " + std::string(freezeFrustum ? "On" : "Off"));
+        if (freezeFrustum) {
+            const float aspect = static_cast<float>(width) / static_cast<float>(height);
+            const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 5.0f, 1000.0f);
+
+            const float partialTicks = mc->timer->partialTicks;
+            const float yaw   = glm::radians(std::fmod(camera->getRotY(partialTicks) + 90, 360));
+            const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.99f, 89.99f));
+
+            glm::vec3 front;
+            front.x = std::cos(yaw) * std::cos(pitch);
+            front.y = std::sin(pitch);
+            front.z = std::sin(yaw) * std::cos(pitch);
+            front = glm::normalize(front);
+
+            glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+            glm::mat4 view = glm::lookAt(glm::vec3(0.0f), front, up);
+
+            frozenProjView = projection * view;
+        }
+    }
+    f6PressedLastFrame = f6Pressed;
 }
 
 bool Renderer::shouldClose() const {
@@ -182,9 +215,11 @@ void Renderer::render(const World* world) const {
 
     blockShader->use();
     glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
     blockShader->setInt("texture1", 0);
 
     const float partialTicks = mc->timer->partialTicks;
+
     const glm::vec3 cameraPos(
         camera->getX(partialTicks),
         camera->getY(partialTicks),
@@ -192,7 +227,7 @@ void Renderer::render(const World* world) const {
     );
 
     const float yaw   = glm::radians(std::fmod(camera->getRotY(partialTicks) + 90, 360));
-    const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.95f, 89.95f));
+    const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.99f, 89.99f)); // gimbal lock i think
 
     glm::vec3 front;
     front.x = std::cos(yaw) * std::cos(pitch);
@@ -200,18 +235,48 @@ void Renderer::render(const World* world) const {
     front.z = std::sin(yaw) * std::cos(pitch);
     front = glm::normalize(front);
 
-    const glm::mat4 view = glm::lookAt(cameraPos, cameraPos + front, glm::vec3(0.0f, 1.0f, 0.0f));
+    auto up = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f), front, up);
     blockShader->setMat4("view", glm::value_ptr(view));
 
-    glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
-    for (const auto& [fst, snd] : world->chunks) {
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(fst.x * CHUNK_SIZE, 0, fst.z * CHUNK_SIZE));
-        blockShader->setMat4("model", glm::value_ptr(model));
-        snd.draw();
+    const float aspect = static_cast<float>(width) / static_cast<float>(height);
+    const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
+
+    const glm::mat4 projView = projection * view;
+
+    // const auto frustumPlanes = extractFrustumPlanes(freezeFrustum ? frozenProjView : projView);
+    std::vector<ChunkCoord> toRemove;
+    for (auto& [pos, chunk] : world->chunks) {
+        if (!chunk->loaded) continue;
+        if (chunk->euclDistSqr(mc->player->position) > mc->settings->getRenderDistanceSqrSize()) {
+            toRemove.push_back(pos);
+        }
+    }
+    for (const auto& pos : toRemove) {
+        world->chunks.erase(pos);
+    }
+
+    for (auto& [pos, chunk] : world->chunks) {
+        if (!chunk->loaded) continue;
+
+        glm::vec3 worldPos(pos.x * CHUNK_SIZE, 0, pos.z * CHUNK_SIZE);
+        glm::vec3 relativePos = worldPos - cameraPos; // camera-relative
+
+        glm::vec3 min = relativePos;
+
+        // if (glm::vec3 max = relativePos + glm::vec3(CHUNK_SIZE); isBoxInFrustum(frustumPlanes, min, max)) {
+            glm::mat4 model = glm::translate(glm::mat4(1.0f), relativePos);
+
+            if (mc->settings->chunkBoundaries && chunk->getMHChunkDist(mc->world->getLoadedChunkAt(mc->player->position.x, mc->player->position.z)) <= 1) {
+                chunk->drawBoundaries(projView * model);
+            }
+
+            chunk->draw(blockShader, model);
+        // }
     }
 
     GLenum err;
-    while((err = glGetError()) != GL_NO_ERROR) {
+    while ((err = glGetError()) != GL_NO_ERROR) {
         std::cerr << "OpenGL error: " << err << "\n";
     }
 }

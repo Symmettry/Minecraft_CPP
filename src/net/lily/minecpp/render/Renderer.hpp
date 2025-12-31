@@ -5,7 +5,6 @@
 
 #include "BlockAtlas.hpp"
 #include "Camera.hpp"
-#include "FontRenderer.hpp"
 #include "../world/World.hpp"
 #include "Shader.hpp"
 
@@ -14,9 +13,10 @@ public:
     GLuint blockAtlasTexture{}; // single atlas texture
     Shader* blockShader{};
 
-    BlockAtlas* blockAtlas = new BlockAtlas();
+    BlockAtlasData blockAtlas = BlockAtlas::loadAtlas("assets/blockatlas.png", "assets/blockatlas.dat");
 
     unsigned int cubeVAO{}, cubeVBO{};
+    mutable int fps{};
 
     Renderer(Minecraft* mc, Camera* camera, const int w, const int h) : window(nullptr), width(w), height(h), camera(camera), mc(mc) {}
     ~Renderer();
@@ -38,4 +38,7 @@ private:
     Minecraft* mc;
     int modelLoc = 0;
     void processInput() const;
+
+    mutable bool freezeFrustum = false;
+    mutable glm::mat4 frozenProjView = glm::mat4(1.0f);
 };

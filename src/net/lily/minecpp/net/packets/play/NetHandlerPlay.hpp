@@ -62,12 +62,12 @@ public:
                         if (blockId == 0) continue;
 
                         const int worldY = sectionY * 16 + y;
-                        chunk->setBlock(x, worldY, z, BlockRegistry::matFromId(blockId), true); // placeholder
+                        chunk->setBlock(x, worldY, z, BLOCK_DIRT); // placeholder
                     }
                 }
             }
         }
-        chunk->queueMesh();
+        chunk->queueMesh(mc->renderer->blockAtlas);
     }
 
     void handleKeepAlive(const S00PacketKeepAlive& p) const {
@@ -157,7 +157,7 @@ public:
     }
 
     void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
-        printf("Received bulk chunks\n");
+        // printf("Received bulk chunks\n");
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
             processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data);
         }
@@ -168,7 +168,7 @@ public:
     }
 
     void handlePacket(const ClientBoundPacket& packet) override {
-        printf("[NetHandlerPlay] Handling packet S%s\n", Math::toHexString(packet.id, true).c_str());
+        // printf("[NetHandlerPlay] Handling packet S%s\n", Math::toHexString(packet.id, true).c_str());
         switch (packet.id) {
             case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.data)); break;
             case 0x01: handleJoinGame(S01PacketJoinGame::deserialize(packet.data)); break;
