@@ -121,10 +121,20 @@ public:
         writeByte(value ? 1 : 0, buffer);
     }
 
+    static bool readBool(const std::vector<uint8_t>& data, size_t& offset) {
+        return readByte(data, offset) == 1;
+    }
+
     static int32_t readInt(const std::vector<uint8_t>& data, size_t& offset) {
         if (offset + 4 > data.size()) throw std::runtime_error("Buffer too small for int");
         const int32_t value = (data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3];
         offset += 4;
+        return value;
+    }
+    static int32_t readShort(const std::vector<uint8_t>& data, size_t& offset) {
+        if (offset + 2 > data.size()) throw std::runtime_error("Buffer too small for short");
+        const int32_t value = (data[offset] << 8) | data[offset + 1];
+        offset += 2;
         return value;
     }
 

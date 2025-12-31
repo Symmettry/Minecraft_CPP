@@ -47,7 +47,7 @@ public:
         client->sendPacket(C00PacketKeepAlive{key});
     }
 
-    void processChunk(const int cx, const int cz, const std::vector<uint8_t>& data, const bool genMesh) const {
+    void processChunk(const int cx, const int cz, const std::vector<uint8_t>& data) const {
         const auto chunk = mc->world->getOrMakeChunk(cx, cz);
         size_t offset = 0;
 
@@ -62,16 +62,12 @@ public:
                         if (blockId == 0) continue;
 
                         const int worldY = sectionY * 16 + y;
-                        chunk->setBlock(x, worldY, z, Material::Dirt); // placeholder
+                        chunk->setBlock(x, worldY, z, BlockRegistry::matFromId(blockId), true); // placeholder
                     }
                 }
             }
         }
-
-        if (genMesh) {
-            chunk->generateMesh(mc->renderer->blockAtlas);
-            chunk->uploadMesh();
-        }
+        chunk->queueMesh();
     }
 
     void handleKeepAlive(const S00PacketKeepAlive& p) const {
@@ -157,18 +153,18 @@ public:
     }
 
     void handleChunkData(const S21PacketChunkData& p) const {
-        processChunk(p.chunkX, p.chunkZ, p.getData(), true);
+        processChunk(p.chunkX, p.chunkZ, p.getData());
     }
 
     void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
         printf("Received bulk chunks\n");
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
-            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data, false);
+            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data);
         }
-        for (auto &val: mc->world->chunks | std::views::values) {
-            val.generateMesh(mc->renderer->blockAtlas);
-            val.uploadMesh();
-        }
+        // for (auto &val: mc->world->chunks | std::views::values) {
+        //     val.generateMesh(mc->renderer->blockAtlas);
+        //     val.uploadMesh();
+        // }
     }
 
     void handlePacket(const ClientBoundPacket& packet) override {

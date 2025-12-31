@@ -27,7 +27,7 @@ public:
         packet.chunksData.resize(count);
 
         for (uint32_t i = 0; i < count; ++i) {
-            if (offset + 8 + 2 > buffer.size()) 
+            if (offset + 8 + 2 > buffer.size())
                 throw std::runtime_error("Buffer too small for chunk headers");
 
             packet.xPositions[i] = (buffer[offset] << 24) | (buffer[offset + 1] << 16) |

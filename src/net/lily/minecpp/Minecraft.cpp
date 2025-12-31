@@ -13,8 +13,17 @@ const Minecraft* Minecraft::getMinecraft() {
 }
 
 void Minecraft::render() const {
-    if (currentScreen) currentScreen->render();
+    std::lock_guard lock(meshQueueMutex);
+    for (const auto&[chunk] : meshUploadQueue) {
+        chunk->generateMesh(renderer->blockAtlas);
+        chunk->uploadMesh();
+    }
+    meshUploadQueue.clear();
+     if (currentScreen) currentScreen->render();
 }
+
+std::vector<MeshUploadJob> Minecraft::meshUploadQueue{};
+std::mutex Minecraft::meshQueueMutex{};
 
 void Minecraft::runTick() const {
     if (currentScreen) currentScreen->tick();

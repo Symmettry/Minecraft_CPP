@@ -156,6 +156,10 @@ public:
     }
 
     void render() const;
+
+    static std::vector<MeshUploadJob> meshUploadQueue;
+    static std::mutex meshQueueMutex;
+
     void runTick() const;
 };
 

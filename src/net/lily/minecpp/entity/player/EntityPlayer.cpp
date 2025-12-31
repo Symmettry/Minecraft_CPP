@@ -113,8 +113,8 @@ void EntityPlayer::handleKeyboardInput() {
 
     if (mc->settings->isKeyDown(mc->settings->moveForward)) moveForward += 1.0f;
     if (mc->settings->isKeyDown(mc->settings->moveBackward)) moveForward -= 1.0f;
-    if (mc->settings->isKeyDown(mc->settings->moveRight)) moveStrafe += 1.0f;
-    if (mc->settings->isKeyDown(mc->settings->moveLeft)) moveStrafe -= 1.0f;
+    if (mc->settings->isKeyDown(mc->settings->moveRight)) moveStrafe -= 1.0f;
+    if (mc->settings->isKeyDown(mc->settings->moveLeft)) moveStrafe += 1.0f;
 
     setSneaking(mc->settings->isKeyDown(mc->settings->sneak));
     isJumping = mc->settings->isKeyDown(mc->settings->jump);

@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "block/BlockRegistry.hpp"
+#include "net/lily/minecpp/Minecraft.hpp"
 #include "net/lily/minecpp/render/BlockAtlas.hpp"
 
 Chunk::Chunk(const int x, const int z)
@@ -23,13 +24,13 @@ Chunk::~Chunk() {
     if (EBO) glDeleteBuffers(1, &EBO);
 }
 
-void Chunk::setBlock(const int x, const int y, const int z, const Material type) {
+void Chunk::setBlock(const int x, const int y, const int z, const Material type, const bool unsafe) {
     const int indexed = index(x, y, z);
     if (indexed < 0 || indexed >= CHUNK_SIZE * CHUNK_SIZE * WORLD_HEIGHT) {
         std::cerr << "Skipping invalid block " << x << ", " << y << ", " << z << " in chunk " << chunkX << ", " << chunkZ << std::endl;
         return;
     }
-    blocks[indexed] = BlockRegistry::createBlock(type, chunkX * CHUNK_SIZE + x, y, chunkZ * CHUNK_SIZE + z);
+    blocks[indexed] = BlockRegistry::createBlock(type, chunkX * CHUNK_SIZE + x, y, chunkZ * CHUNK_SIZE + z, unsafe);
 }
 
 const std::unique_ptr<Block> &Chunk::getBlock(const int x, const int y, const int z) const {
@@ -41,7 +42,7 @@ bool Chunk::isOpaque(const int nx, const int ny, const int nz) const {
         return false;
     return getBlock(nx, ny, nz)->isOpaque();
 }
-void Chunk::generateMesh(const BlockAtlas* blockAtlas) {
+void Chunk::generateMesh(const BlockAtlas* blockAtlas) const {
     meshData.vertices.clear();
     meshData.indices.clear();
 
@@ -71,7 +72,6 @@ void Chunk::generateMesh(const BlockAtlas* blockAtlas) {
             for (int z = 0; z < CHUNK_SIZE; ++z) {
                 const auto &block = getBlock(x, y, z);
                 if (!block || !block->isOpaque()) continue;
-                const Material mat = block->material;
 
                 for (int f = 0; f < 6; ++f) {
                     int nx = x, ny = y, nz = z;
@@ -82,6 +82,7 @@ void Chunk::generateMesh(const BlockAtlas* blockAtlas) {
                         case 3: nx += 1; break;
                         case 4: ny += 1; break;
                         case 5: ny -= 1; break;
+                        default: ;
                     }
                     if (isOpaque(nx, ny, nz)) continue;
 
@@ -118,7 +119,7 @@ std::tuple<float,float,float,float> Chunk::getTextureUV(const BlockAtlas* blockA
     return blockAtlas->getBlockUV(block->getTextureName(face));
 }
 
-void Chunk::uploadMesh() {
+void Chunk::uploadMesh() const {
     if (VAO == 0) glGenVertexArrays(1, &VAO);
     if (VBO == 0) glGenBuffers(1, &VBO);
     if (EBO == 0) glGenBuffers(1, &EBO);
@@ -140,14 +141,23 @@ void Chunk::uploadMesh() {
 
     std::cout << "Uploading mesh for chunk " << chunkX << ", " << chunkZ
           << " vertices: " << meshData.vertices.size()
-          << " indices: " << meshData.indices.size() << "\n";
+          << " indices: " << meshData.indices.size()
+          << " VAO: " << VAO << " VBO: " << VBO
+          << " EBO: " << EBO << "\n";
 }
 
 void Chunk::draw() const {
     if (meshData.indices.empty())
         return;
 
+    if (VAO == 0) std::cerr << "VAO not existent for chunk " << chunkX << "," << chunkZ << std::endl;
+
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, LONG(meshData.indices.size()), GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
+}
+
+void Chunk::queueMesh() const {
+    std::lock_guard lock(Minecraft::meshQueueMutex);
+    Minecraft::meshUploadQueue.push_back({this});
 }

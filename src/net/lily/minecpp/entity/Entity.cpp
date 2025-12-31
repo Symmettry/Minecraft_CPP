@@ -26,10 +26,10 @@ void Entity::update() {
 void Entity::jump() {
     velocity.y = jumpHeight();
     if (isSprinting() && moveForward > 0.0) {
-        double yawRad = rotation.yaw * M_PI / 180.0;
-        double boost = 0.2;
-        velocity.z += std::sin(yawRad) * boost;
-        velocity.x += std::cos(yawRad) * boost;
+        constexpr double boost = 0.2;
+        const double yawRad = rotation.yaw * M_PI / 180.0;
+        velocity.x -= std::sin(yawRad) * boost;
+        velocity.z += std::cos(yawRad) * boost;
     }
     isAirBorne = true;
 }
