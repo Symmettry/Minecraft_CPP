@@ -235,6 +235,10 @@ struct BlockDescriptor {
     uint32_t flags = 0;
 
     std::map<std::string, std::vector<BlockVariant>> variants; // propertydescriptor -> list of variants
+
+    std::string string() {
+        return identifier;
+    }
 };
 
 struct BlockModel {
@@ -306,8 +310,6 @@ public:
             std::getline(ss2, propertyDescriptor, ',');
             std::getline(ss2, countStr, ',');
 
-            std::cout << localName << " " << countStr << std::endl;
-
             int count = std::stoi(countStr);
             std::vector<BlockVariant> variants;
             for (int i = 0; i < count; ++i) {
@@ -316,8 +318,6 @@ public:
                 std::getline(ss2, xStr, ',');
                 std::getline(ss2, yStr, ',');
                 std::getline(ss2, uvStr, ',');
-
-                std::cout << xStr << " " << yStr << std::endl;
 
                 BlockVariant v;
                 v.model = model;
@@ -371,33 +371,31 @@ public:
     }
 
     static const std::string& getBlockTexture(const Block block, const int face) {
-        static const std::string missing = "missing_texture";
+        static const std::string fallback = "dirt";
 
-        const uint16_t key = block & 0xFFF0;
-        const uint8_t meta = blockMeta(block);
+        const auto itDesc = blockData.find(block);
+        if (itDesc == blockData.end()) return fallback;
 
-        const auto dataIt = blockData.find(key);
-        if (dataIt == blockData.end()) return missing;
+        const auto& desc = itDesc->second;
+        if (desc.variants.empty()) return fallback;
 
-        const auto& desc = dataIt->second;
-        const auto varIt = desc.variants.find("normal");
-        if (varIt == desc.variants.end() || varIt->second.empty())
-            return missing;
+        const auto& firstVariantList = desc.variants.begin()->second;
+        if (firstVariantList.empty()) return fallback;
 
-        const auto& variant = varIt->second[meta % varIt->second.size()];
+        const auto& variant = firstVariantList[0];
+        const auto& modelName = variant.model;
 
-        const auto modelIt = blockModels.find(key);
-        if (modelIt == blockModels.end() || modelIt->second.empty())
-            return missing;
+        const auto itModels = blockModels.find(block);
+        if (itModels == blockModels.end()) return fallback;
 
-        for (const auto& model : modelIt->second) {
-            if (model.identifier == variant.model) {
-                if (face < 0 || face >= 6) return missing;
-                return model.textures[face];
+        for (const auto& models = itModels->second; const auto&[identifier, comment, textures] : models) {
+            if (identifier == modelName && comment == "normal") {
+                printf("Texture: %s\n", textures[face].c_str());
+                return textures[face];
             }
         }
 
-        return missing;
+        return fallback;
     }
 
     static constexpr bool isOpaque(const Block block) {
