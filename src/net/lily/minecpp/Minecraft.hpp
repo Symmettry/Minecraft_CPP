@@ -51,33 +51,9 @@ public:
         textShader = new Shader("assets/shaders/text.vert", "assets/shaders/text.frag");
         fontRenderer = new FontRenderer("assets/minecraft/textures/font/ascii.png", textShader);
 
-        // world->entities.push_back(player);
-
-        // // Generate some test world
-        // for (int x=-16;x<16;x++) {
-        //     for (int z=-16;z<16;z++) {
-        //         Material mat;
-        //         if (x == 0 || z == 0) mat = Material::Stone;
-        //         else if (x > 0 && z > 0) mat = Material::Grass;
-        //         else if (x < 0 && z > 0) mat = Material::Dirt;
-        //         else if (x < 0) mat = Material::Obsidian;
-        //         else mat = Material::Ice;
-        //
-        //         world->setBlockAt(x, 0, z, mat);
-        //         if ((x + z) % 2 == 0) world->setBlockAt(x, 10, z, mat);
-        //     }
-        // }
-        //
-        // for (int i=0;i<10;i++) {
-        //     world->setBlockAt(3 + i, 1, 3, Material::Ice);
-        //     world->setBlockAt(3 + i, 1, 4, Material::Ice);
-        // }
-        //
-        // world->setBlockAt(-196, 69, 254, Material::Dirt);
-        // for (auto &val: world->chunks | std::views::values) {
-        //     val.generateMesh(renderer->blockAtlas);
-        //     val.uploadMesh();
-        // }
+        BlockUtil::loadBlockData("assets/blockdata.dat.zst");
+        BlockUtil::loadBlockStates("assets/blockstates.dat.zst");
+        BlockUtil::loadBlockModels("assets/blockmodels.dat.zst");
 
         if (!serverIp.empty()) {
             netClient = new NetClient(serverIp, serverPort, player->username);

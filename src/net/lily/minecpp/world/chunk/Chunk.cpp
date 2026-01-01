@@ -33,14 +33,6 @@ void Chunk::setBlock(const int x, const int y, const int z, Block block) {
         x >= CHUNK_SIZE || y >= WORLD_HEIGHT || z >= CHUNK_SIZE)
         return;
 
-    if (blockId(block) > BLOCK_COUNT) {
-        printf("Invalid block id: %d - %d\n", block, blockId(block));
-        block = BLOCK_DIRT;
-    } else if (!MULTI_FACE_SET[blockId(block)] && !SINGLE_FACE_SET[blockId(block)]) {
-        printf("Unknown block id: %d - %d\n", block, blockId(block));
-        block = BLOCK_DIRT;
-    }
-
     blocks[index(x, y, z)] = block;
 }
 
@@ -56,7 +48,7 @@ inline uint8_t Chunk::isOpaque(const int x, const int y, const int z) const {
     }
 
     const Block block = getBlock(x, y, z);
-    return BLOCK_OPAQUE[blockId(block)] ? 1 : 0;
+    return BlockUtil::isOpaque(block) ? 1 : 0;
 }
 
 void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
@@ -112,9 +104,9 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
 
                             const uint16_t tileIndex =
                                 static_cast<uint16_t>(blockAtlas.second.blockAtlasPos
-                                    .at(getBlockTexture(id, face)).second * atlasTilesPerRow +
+                                    .at(BlockUtil::getBlockTexture(block, face)).second * atlasTilesPerRow +
                                     blockAtlas.second.blockAtlasPos
-                                    .at(getBlockTexture(id, face)).first);
+                                    .at(BlockUtil::getBlockTexture(block, face)).first);
 
                             const unsigned int startIndex =
                                 static_cast<unsigned int>(meshData.vertices.size());
@@ -142,7 +134,7 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
                 }
 
                 const uint16_t id = blockId(block);
-                if (!BLOCK_OPAQUE[id]) continue;
+                if (id == 0) continue;
 
                 for (int f = 0; f < 6; ++f) {
                     int nx = x;
@@ -190,9 +182,9 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
 
                     const uint16_t tileIndex =
                         static_cast<uint16_t>(blockAtlas.second.blockAtlasPos
-                            .at(getBlockTexture(id, f)).second * atlasTilesPerRow +
+                            .at(BlockUtil::getBlockTexture(block, f)).second * atlasTilesPerRow +
                             blockAtlas.second.blockAtlasPos
-                            .at(getBlockTexture(id, f)).first);
+                            .at(BlockUtil::getBlockTexture(block, f)).first);
 
                     const unsigned int startIndex =
                         static_cast<unsigned int>(meshData.vertices.size());

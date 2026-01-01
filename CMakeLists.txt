@@ -23,3 +23,7 @@ if(GLFW_FOUND)
     target_include_directories(${PROJECT_NAME} PRIVATE ${GLFW_INCLUDE_DIRS})
     target_link_libraries(${PROJECT_NAME} PRIVATE ${GLFW_LIBRARIES})
 endif()
+
+# change this for windows dhdfg
+target_include_directories(${PROJECT_NAME} PRIVATE /usr/include)
+target_link_libraries(${PROJECT_NAME} PRIVATE zstd)

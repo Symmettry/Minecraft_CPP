@@ -1,7 +1,15 @@
 #pragma once
 #include <cstdint>
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <array>
+#include <iostream>
+#include <ranges>
 
 #include "net/lily/minecpp/util/AABB.hpp"
+#include "net/lily/minecpp/util/Zstd.hpp"
 
 #define F false
 #define N nullptr
@@ -210,6 +218,31 @@ constexpr Block
   , BLOCK_DARK_OAK_DOOR           = 197 << 4
 ;
 
+struct BlockVariant {
+    std::string model;
+    int x = 0;
+    int y = 0;
+    bool uvlock = false;
+};
+
+struct BlockDescriptor {
+    std::string identifier;
+    float hardness = 0.f;
+    float resistance = 0.f;
+    std::string stepSound = "";
+    int lightOpacity = 0;
+    int lightLevel = 0;
+    uint32_t flags = 0;
+
+    std::map<std::string, std::vector<BlockVariant>> variants; // propertydescriptor -> list of variants
+};
+
+struct BlockModel {
+    std::string identifier;
+    std::string comment;
+    std::array<std::string, 6> textures; // down, up, north, south, west, east
+};
+
 constexpr uint16_t blockId(const Block b) {
     return b >> 4;
 }
@@ -218,15 +251,153 @@ constexpr uint8_t blockMeta(const Block b) {
     return b & 0xF;
 }
 
-// TODO: Replace with assets/minecraft/models/block/xxx.json
-constexpr const char* getBlockTexture(const int id, const int face) {
-    return MULTI_FACE_SET[id] && MULTI_FACE_SET[id][face] ? MULTI_FACE_SET[id][face] : SINGLE_FACE_SET[id] ? SINGLE_FACE_SET[id] : "stone";
-}
-
 class BlockUtil {
 public:
-    static void initBlockData() {
+    static std::map<uint16_t, BlockDescriptor> blockData;
+    static std::map<uint16_t, std::vector<BlockModel>> blockModels;
 
+    static void loadBlockData(const std::string &filename) {
+        std::string data = Zstd::readZstdFile(filename);
+        std::stringstream ss(data);
+        std::string line;
+        std::getline(ss, line); // skip header
+        while (std::getline(ss, line)) {
+            if (line.empty()) continue;
+
+            std::stringstream ss2(line);
+            std::string idStr, subtypeStr, identifier, hardnessStr, resistanceStr, stepStr, opacityStr, lightStr, flagsStr;
+            std::getline(ss2, idStr, ',');
+            std::getline(ss2, subtypeStr, ',');
+            std::getline(ss2, identifier, ',');
+            std::getline(ss2, hardnessStr, ',');
+            std::getline(ss2, resistanceStr, ',');
+            std::getline(ss2, stepStr, ',');
+            std::getline(ss2, opacityStr, ',');
+            std::getline(ss2, lightStr, ',');
+            std::getline(ss2, flagsStr, ',');
+
+            uint16_t id = std::stoi(idStr);
+            uint8_t subtype = std::stoi(subtypeStr);
+            uint16_t key = (id << 4) | (subtype & 0xF);
+
+            BlockDescriptor desc;
+            desc.identifier = identifier;
+            desc.hardness = std::stof(hardnessStr);
+            desc.resistance = std::stof(resistanceStr);
+            desc.stepSound = stepStr;
+            desc.lightOpacity = std::stoi(opacityStr);
+            desc.lightLevel = std::stoi(lightStr);
+            desc.flags = std::stoul(flagsStr);
+
+            blockData[key] = std::move(desc);
+        }
+    }
+    static void loadBlockStates(const std::string &filename) {
+        std::string data = Zstd::readZstdFile(filename);
+        std::stringstream ss(data);
+        std::string line;
+        std::getline(ss, line); // skip header
+        while (std::getline(ss, line)) {
+            if (line.empty()) continue;
+
+            std::stringstream ss2(line);
+            std::string localName, propertyDescriptor, countStr;
+            std::getline(ss2, localName, ',');
+            std::getline(ss2, propertyDescriptor, ',');
+            std::getline(ss2, countStr, ',');
+
+            std::cout << localName << " " << countStr << std::endl;
+
+            int count = std::stoi(countStr);
+            std::vector<BlockVariant> variants;
+            for (int i = 0; i < count; ++i) {
+                std::string model, xStr, yStr, uvStr;
+                std::getline(ss2, model, ',');
+                std::getline(ss2, xStr, ',');
+                std::getline(ss2, yStr, ',');
+                std::getline(ss2, uvStr, ',');
+
+                std::cout << xStr << " " << yStr << std::endl;
+
+                BlockVariant v;
+                v.model = model;
+                v.x = xStr.empty() ? 0 : std::stoi(xStr);
+                v.y = yStr.empty() ? 0 : std::stoi(yStr);
+                v.uvlock = uvStr == "true" || uvStr == "1";
+                variants.push_back(v);
+            }
+
+            for (auto &desc: blockData | std::views::values) {
+                if (desc.identifier == localName) {
+                    desc.variants[propertyDescriptor] = std::move(variants);
+                    break;
+                }
+            }
+        }
+    }
+    static void loadBlockModels(const std::string &filename) {
+        std::string data = Zstd::readZstdFile(filename);
+        std::stringstream ss(data);
+        std::string line;
+        std::getline(ss, line); // skip header
+        while (std::getline(ss, line)) {
+            if(line.empty()) continue;
+
+            std::stringstream ls(line);
+            std::string identifier, comment, from, to;
+            std::array<std::string, 6> textures;
+
+            std::getline(ls, identifier, ',');
+            std::getline(ls, comment, ',');
+            std::getline(ls, from, ',');
+            std::getline(ls, to, ',');
+
+            for(int i = 0; i < 6; ++i) {
+                std::string tex, uv;
+                std::getline(ls, tex, ',');
+                std::getline(ls, uv, ',');
+                if(!tex.empty() && tex.rfind("blocks/", 0) == 0)
+                    tex = tex.substr(7); // remove "blocks/"
+                textures[i] = tex;
+            }
+
+            // assign to all IDs that match identifier
+            for(auto &[key, desc] : blockData) {
+                if(desc.identifier == identifier) {
+                    blockModels[key].push_back({identifier, comment, textures});
+                }
+            }
+        }
+    }
+
+    static const std::string& getBlockTexture(const Block block, const int face) {
+        static const std::string missing = "missing_texture";
+
+        const uint16_t key = block & 0xFFF0;
+        const uint8_t meta = blockMeta(block);
+
+        const auto dataIt = blockData.find(key);
+        if (dataIt == blockData.end()) return missing;
+
+        const auto& desc = dataIt->second;
+        const auto varIt = desc.variants.find("normal");
+        if (varIt == desc.variants.end() || varIt->second.empty())
+            return missing;
+
+        const auto& variant = varIt->second[meta % varIt->second.size()];
+
+        const auto modelIt = blockModels.find(key);
+        if (modelIt == blockModels.end() || modelIt->second.empty())
+            return missing;
+
+        for (const auto& model : modelIt->second) {
+            if (model.identifier == variant.model) {
+                if (face < 0 || face >= 6) return missing;
+                return model.textures[face];
+            }
+        }
+
+        return missing;
     }
 
     static constexpr bool isOpaque(const Block block) {

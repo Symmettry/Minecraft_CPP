@@ -13,7 +13,7 @@ public:
     GLuint blockAtlasTexture{}; // single atlas texture
     Shader* blockShader{};
 
-    BlockAtlasData blockAtlas = BlockAtlas::loadAtlas("assets/blockatlas.png", "assets/blockatlas.dat");
+    BlockAtlasData blockAtlas = BlockAtlas::loadAtlas("assets/blockatlas.png", "assets/blockatlas.dat.zst");
 
     unsigned int cubeVAO{}, cubeVBO{};
     mutable int fps{};

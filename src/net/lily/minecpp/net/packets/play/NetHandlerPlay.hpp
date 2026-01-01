@@ -59,10 +59,10 @@ public:
                         const uint16_t rawBlock = data[offset] | (data[offset + 1] << 8);
                         offset += 2;
 
-                        if ((rawBlock & 0xFFF) == 0) continue; // ID 0 = air
+                        if ((rawBlock & 0xFFF) == 0) continue;
 
                         const int worldY = sectionY * 16 + y;
-                        chunk->setBlock(x, worldY, z, rawBlock); // store exactly as-is
+                        chunk->setBlock(x, worldY, z, rawBlock);
                     }
                 }
             }
