@@ -56,17 +56,18 @@ public:
                 for (int z = 0; z < 16; ++z) {
                     for (int x = 0; x < 16; ++x) {
                         if (offset + 2 > data.size()) break;
-                        const uint16_t blockId = data[offset] | (data[offset + 1] << 8);
+                        const uint16_t rawBlock = data[offset] | (data[offset + 1] << 8);
                         offset += 2;
 
-                        if (blockId == 0) continue;
+                        if ((rawBlock & 0xFFF) == 0) continue; // ID 0 = air
 
                         const int worldY = sectionY * 16 + y;
-                        chunk->setBlock(x, worldY, z, BLOCK_DIRT); // placeholder
+                        chunk->setBlock(x, worldY, z, rawBlock); // store exactly as-is
                     }
                 }
             }
         }
+
         chunk->queueMesh(mc->renderer->blockAtlas);
     }
 

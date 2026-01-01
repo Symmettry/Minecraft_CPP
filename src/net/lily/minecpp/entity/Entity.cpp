@@ -111,7 +111,7 @@ void Entity::moveEntityWithHeading(const float strafe, const float forward) {
     float f4 = 0.91f;
 
     if (onGround) {
-        f4 = getSlipperiness(getBlockBelow()) * 0.91f;
+        f4 = BlockUtil::getSlipperiness(getBlockBelow()) * 0.91f;
     }
 
     const float f = 0.16277136F / (f4 * f4 * f4);
@@ -123,7 +123,7 @@ void Entity::moveEntityWithHeading(const float strafe, const float forward) {
     f4 = 0.91f;
 
     if (onGround) {
-        f4 = getSlipperiness(getBlockBelow()) * 0.91f;
+        f4 = BlockUtil::getSlipperiness(getBlockBelow()) * 0.91f;
     }
 
     if (isOnLadder()) {

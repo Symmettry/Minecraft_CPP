@@ -1,22 +1,25 @@
 #include "Chunk.hpp"
 
-#include <iostream>
 #include <mutex>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "net/lily/minecpp/Minecraft.hpp"
 #include "net/lily/minecpp/render/BlockAtlas.hpp"
-#include "net/lily/minecpp/render/Camera.hpp"
-#include "net/lily/minecpp/render/Camera.hpp"
 
 #define FLOAT static_cast<float>
 #define LONG static_cast<long>
 
 Shader* Chunk::boundShader;
 
-Chunk::Chunk(const int x, const int z)
-    : chunkX(x), chunkZ(z) {
+Chunk::Chunk(const int x, const int z, const World* world)
+    : world(world), chunkX(x), chunkZ(z) {
     blocks.fill(BLOCK_AIR);
+    if (const auto it = world->pendingFace4Chunks.find({x, z}); it != world->pendingFace4Chunks.end()) {
+        for (auto &[fst, snd] : it->second) {
+            pendingFaces[fst].push_back(snd);
+        }
+        world->pendingFace4Chunks.erase(it);
+    }
 }
 
 Chunk::~Chunk() {
@@ -25,10 +28,18 @@ Chunk::~Chunk() {
     if (EBO != 0) glDeleteBuffers(1, &EBO);
 }
 
-void Chunk::setBlock(const int x, const int y, const int z, const Block block) {
+void Chunk::setBlock(const int x, const int y, const int z, Block block) {
     if (x < 0 || y < 0 || z < 0 ||
         x >= CHUNK_SIZE || y >= WORLD_HEIGHT || z >= CHUNK_SIZE)
         return;
+
+    if (blockId(block) > BLOCK_COUNT) {
+        printf("Invalid block id: %d - %d\n", block, blockId(block));
+        block = BLOCK_DIRT;
+    } else if (!MULTI_FACE_SET[blockId(block)] && !SINGLE_FACE_SET[blockId(block)]) {
+        printf("Unknown block id: %d - %d\n", block, blockId(block));
+        block = BLOCK_DIRT;
+    }
 
     blocks[index(x, y, z)] = block;
 }
@@ -37,13 +48,15 @@ Block Chunk::getBlock(const int x, const int y, const int z) const {
     return blocks[index(x, y, z)];
 }
 
-bool Chunk::isOpaque(const int x, const int y, const int z) const {
+inline uint8_t Chunk::isOpaque(const int x, const int y, const int z) const {
     if (x < 0 || y < 0 || z < 0 ||
-        x >= CHUNK_SIZE || y >= WORLD_HEIGHT || z >= CHUNK_SIZE)
-        return true; // TODO: Queue this x,y,z coordinate and update the mesh accordingly
+        x >= CHUNK_SIZE || y >= WORLD_HEIGHT || z >= CHUNK_SIZE) {
+        const int nx = chunkX*CHUNK_SIZE + x, nz = chunkZ*CHUNK_SIZE + z;
+        return world->isOpaque(nx, y, nz);
+    }
 
     const Block block = getBlock(x, y, z);
-    return BLOCK_OPAQUE[blockId(block)];
+    return BLOCK_OPAQUE[blockId(block)] ? 1 : 0;
 }
 
 void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
@@ -51,7 +64,7 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
     meshData.vertices.clear();
     meshData.indices.clear();
 
-    constexpr float VERTS[8][3] = {
+    constexpr unsigned int VERTS[8][3] = {
         {0,0,0},{1,0,0},{1,0,1},{0,0,1},
         {0,1,0},{1,1,0},{1,1,1},{0,1,1}
     };
@@ -74,7 +87,59 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
             for (int z = 0; z < CHUNK_SIZE; ++z) {
 
                 const Block block = getBlock(x, y, z);
-                if (block == BLOCK_AIR) continue;
+                if (block == BLOCK_AIR) {
+                    if (!(x == 0 || x == CHUNK_SIZE-1 || z == 0 || z == CHUNK_SIZE-1)) continue;
+
+                    glm::ivec3 pos{x, y, z};
+                    if (const auto it = pendingFaces.find(pos); it != pendingFaces.end()) {
+                        for (const auto &pf : it->second) {
+                            const uint16_t id = pf >> 3;
+                            const uint16_t face = pf & 0x7;
+
+                            // Determine the offset for the pending face
+                            glm::ivec3 offset{0, 0, 0};
+                            switch(face) {
+                                case 0: offset.z = -1; break; // +Z face of neighbor
+                                case 1: offset.z = 1;  break; // -Z face of neighbor
+                                case 2: offset.x = 1;  break; // -X face of neighbor
+                                case 3: offset.x = -1; break; // +X face of neighbor
+                                case 4: offset.y = -1; break; // +Y face of neighbor
+                                case 5: offset.y = 1;  break; // -Y face of neighbor
+                                default: ;
+                            }
+
+                            const glm::ivec3 realPos = pos + offset;
+
+                            const uint16_t tileIndex =
+                                static_cast<uint16_t>(blockAtlas.second.blockAtlasPos
+                                    .at(getBlockTexture(id, face)).second * atlasTilesPerRow +
+                                    blockAtlas.second.blockAtlasPos
+                                    .at(getBlockTexture(id, face)).first);
+
+                            const unsigned int startIndex =
+                                static_cast<unsigned int>(meshData.vertices.size());
+
+                            for (uint8_t i = 0; i < 4; ++i) {
+                                const unsigned int vi = FACE_VERTS[face][i];
+                                meshData.vertices.push_back(Vertex{
+                                    VERTS[vi][0] + FLOAT(realPos.x),
+                                    VERTS[vi][1] + FLOAT(realPos.y),
+                                    VERTS[vi][2] + FLOAT(realPos.z),
+                                    tileIndex,
+                                    i
+                                });
+                            }
+
+                            for (const auto& tri : TRIANGLES) {
+                                meshData.indices.push_back(startIndex + tri[0]);
+                                meshData.indices.push_back(startIndex + tri[1]);
+                                meshData.indices.push_back(startIndex + tri[2]);
+                            }
+                        }
+                        pendingFaces.erase(it);
+                    }
+                    continue;
+                }
 
                 const uint16_t id = blockId(block);
                 if (!BLOCK_OPAQUE[id]) continue;
@@ -94,26 +159,64 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
                         default: break;
                     }
 
-                    if (isOpaque(nx, ny, nz)) continue;
+                    // ReSharper disable once CppVariableCanBeMadeConstexpr - THIS IS FUCKING WRONG ITS NOT CONSTEXPR YOU FUCKING FUCKER
+                    if (const auto k = isOpaque(nx, ny, nz); k != 0) {
+                        if (k == 2) {
+                            int neighborChunkX = chunkX;
+                            int neighborChunkZ = chunkZ;
+                            int localX = nx;
+                            int localZ = nz;
 
-                    const auto [uMin, vMin, uMax, vMax] =
-                        blockAtlas.second.getBlockUV(getBlockTexture(id, f));
+                            if (nx < 0) {
+                                neighborChunkX -= 1;
+                                localX = CHUNK_SIZE - 1;
+                            } else if (nx >= CHUNK_SIZE) {
+                                neighborChunkX += 1;
+                                localX = 0;
+                            }
+
+                            if (nz < 0) {
+                                neighborChunkZ -= 1;
+                                localZ = CHUNK_SIZE - 1;
+                            } else if (nz >= CHUNK_SIZE) {
+                                neighborChunkZ += 1;
+                                localZ = 0;
+                            }
+
+                            world->addPendingFace(neighborChunkX, neighborChunkZ, {localX, ny, localZ}, static_cast<uint16_t>((id << 3) | f));
+                        }
+                        continue;
+                    }
+
+                    const uint16_t tileIndex =
+                        static_cast<uint16_t>(blockAtlas.second.blockAtlasPos
+                            .at(getBlockTexture(id, f)).second * atlasTilesPerRow +
+                            blockAtlas.second.blockAtlasPos
+                            .at(getBlockTexture(id, f)).first);
 
                     const unsigned int startIndex =
-                        meshData.vertices.size() / 5;
+                        static_cast<unsigned int>(meshData.vertices.size());
 
-                    for (int i = 0; i < 4; ++i) {
+                    for (uint8_t i = 0; i < 4; ++i) {
                         const unsigned int vi = FACE_VERTS[f][i];
 
-                        meshData.vertices.push_back(VERTS[vi][0] + FLOAT(x));
-                        meshData.vertices.push_back(VERTS[vi][1] + FLOAT(y));
-                        meshData.vertices.push_back(VERTS[vi][2] + FLOAT(z));
+                        // Map corners to flip V (Y) coordinate
+                        uint8_t cornerFlipped;
+                        switch (i) {
+                            case 0: cornerFlipped = 3; break;
+                            case 1: cornerFlipped = 2; break;
+                            case 2: cornerFlipped = 1; break;
+                            case 3: cornerFlipped = 0; break;
+                            default: cornerFlipped = i; break;
+                        }
 
-                        const float u = (i == 0 || i == 3) ? uMax : uMin;
-                        const float v = (i == 0 || i == 1) ? vMax : vMin;
-
-                        meshData.vertices.push_back(u);
-                        meshData.vertices.push_back(v);
+                        meshData.vertices.push_back(Vertex{
+                            VERTS[vi][0] + FLOAT(x),
+                            VERTS[vi][1] + FLOAT(y),
+                            VERTS[vi][2] + FLOAT(z),
+                            tileIndex,
+                            cornerFlipped
+                        });
                     }
 
                     for (const auto& tri : TRIANGLES) {
@@ -137,7 +240,7 @@ void Chunk::uploadMesh() const {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(
         GL_ARRAY_BUFFER,
-        LONG(meshData.vertices.size() * sizeof(float)),
+        meshData.vertices.size() * sizeof(Vertex),
         meshData.vertices.data(),
         GL_STATIC_DRAW
     );
@@ -145,20 +248,38 @@ void Chunk::uploadMesh() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(
         GL_ELEMENT_ARRAY_BUFFER,
-        LONG(meshData.indices.size() * sizeof(unsigned int)),
+        meshData.indices.size() * sizeof(unsigned int),
         meshData.indices.data(),
         GL_STATIC_DRAW
     );
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
+    glVertexAttribPointer(
+        0,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        sizeof(Vertex),
+        nullptr
+    );
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(
-        1, 2, GL_FLOAT, GL_FALSE,
-        5 * sizeof(float),
-        reinterpret_cast<void*>(3 * sizeof(float))
+    glVertexAttribIPointer(
+        1,
+        1,
+        GL_UNSIGNED_SHORT,
+        sizeof(Vertex),
+        reinterpret_cast<void*>(offsetof(Vertex, tile))
     );
     glEnableVertexAttribArray(1);
+
+    glVertexAttribIPointer(
+        2,
+        1,
+        GL_UNSIGNED_BYTE,
+        sizeof(Vertex),
+        reinterpret_cast<void*>(offsetof(Vertex, corner))
+    );
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 
@@ -280,5 +401,5 @@ void Chunk::queueMesh(const BlockAtlasData &blockAtlas) const {
     generateMesh(blockAtlas);
 
     std::lock_guard lock(Minecraft::meshQueueMutex);
-    Minecraft::meshUploadQueue.push_back({this});
+    Minecraft::meshUploadQueue.push_back(MeshUploadJob{shared_from_this()});
 }

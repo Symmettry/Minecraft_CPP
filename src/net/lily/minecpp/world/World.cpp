@@ -20,7 +20,7 @@ std::vector<LocalBlock> World::getCollidingBlocks(const AABB &box) const {
             if (y < 0 || y >= WORLD_HEIGHT) continue;
             for (int z = floor(box.minZ); z <= box.maxZ; ++z) {
                 const Block block = getBlockAt(x, y, z);
-                if (!block || !isOpaque(block)) continue;
+                if (!block || !BlockUtil::isOpaque(block)) continue;
                 collisions.push_back({block, x, y, z});
             }
         }
