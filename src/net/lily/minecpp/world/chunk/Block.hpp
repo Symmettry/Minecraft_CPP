@@ -364,6 +364,7 @@ public:
             // assign to all IDs that match identifier
             for(auto &[key, desc] : blockData) {
                 if(desc.identifier == identifier) {
+                    printf("%s\n", identifier.c_str());
                     blockModels[key].push_back({identifier, comment, textures});
                 }
             }
@@ -373,11 +374,19 @@ public:
     static const std::string& getBlockTexture(const Block block, const int face) {
         static const std::string fallback = "dirt";
 
+        const int id = blockId(block);
+
+        if (id == blockId(BLOCK_DIRT)) printf("A\n");
+
         const auto itDesc = blockData.find(block);
         if (itDesc == blockData.end()) return fallback;
 
+        if (id == blockId(BLOCK_DIRT)) printf("Desc: %s\n", itDesc->second.identifier.c_str());
+
         const auto& desc = itDesc->second;
         if (desc.variants.empty()) return fallback;
+
+        if (id == blockId(BLOCK_DIRT)) printf("Var size: %lu\n", desc.variants.begin()->second.size());
 
         const auto& firstVariantList = desc.variants.begin()->second;
         if (firstVariantList.empty()) return fallback;
@@ -385,17 +394,17 @@ public:
         const auto& variant = firstVariantList[0];
         const auto& modelName = variant.model;
 
+        if (id == blockId(BLOCK_DIRT)) printf("First var: %s\n", variant.model.c_str());
+
         const auto itModels = blockModels.find(block);
         if (itModels == blockModels.end()) return fallback;
 
-        for (const auto& models = itModels->second; const auto&[identifier, comment, textures] : models) {
-            if (identifier == modelName && comment == "normal") {
-                printf("Texture: %s\n", textures[face].c_str());
-                return textures[face];
-            }
-        }
+        const auto& vec = itModels->second[0];
 
-        return fallback;
+        printf("F: %s %s\n", variant.model.c_str(), vec.textures[0].c_str());
+        printf("T: %d %s\n", face, vec.textures[face % vec.textures.size()].c_str());
+
+        return vec.textures[face % vec.textures.size()];
     }
 
     static constexpr bool isOpaque(const Block block) {
