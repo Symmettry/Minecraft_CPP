@@ -119,7 +119,7 @@ void Renderer::init() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    Chunk::boundShader = new Shader("assets/shaders/boundary.vert", "assets/shaders/boundary.frag");
+    Chunk::boundShader = std::make_unique<Shader>("assets/shaders/boundary.vert", "assets/shaders/boundary.frag");
 }
 
 void Renderer::processInput() const {

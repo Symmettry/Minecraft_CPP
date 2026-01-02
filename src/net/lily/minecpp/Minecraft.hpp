@@ -51,9 +51,7 @@ public:
         textShader = new Shader("assets/shaders/text.vert", "assets/shaders/text.frag");
         fontRenderer = new FontRenderer("assets/minecraft/textures/font/ascii.png", textShader);
 
-        BlockUtil::loadBlockData("assets/blockdata.dat.zst");
-        BlockUtil::loadBlockStates("assets/blockstates.dat.zst");
-        BlockUtil::loadBlockModels("assets/blockmodels.dat.zst");
+        BlockUtil::loadBlockTextures(renderer->blockAtlas.second, "assets/blocktextures.dat.zst");
 
         if (!serverIp.empty()) {
             netClient = new NetClient(serverIp, serverPort, player->username);

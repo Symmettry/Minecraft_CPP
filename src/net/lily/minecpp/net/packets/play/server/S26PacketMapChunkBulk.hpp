@@ -26,35 +26,63 @@ public:
         packet.zPositions.resize(count);
         packet.chunksData.resize(count);
 
+        std::vector<uint16_t> primaryBitmasks(count);
+
         for (uint32_t i = 0; i < count; ++i) {
-            if (offset + 8 + 2 > buffer.size())
-                throw std::runtime_error("Buffer too small for chunk headers");
-
-            packet.xPositions[i] = (buffer[offset] << 24) | (buffer[offset + 1] << 16) |
-                                   (buffer[offset + 2] << 8) | buffer[offset + 3];
+            packet.xPositions[i] = (buffer[offset] << 24) | (buffer[offset+1] << 16) |
+                                   (buffer[offset+2] << 8) | buffer[offset+3];
             offset += 4;
 
-            packet.zPositions[i] = (buffer[offset] << 24) | (buffer[offset + 1] << 16) |
-                                   (buffer[offset + 2] << 8) | buffer[offset + 3];
+            packet.zPositions[i] = (buffer[offset] << 24) | (buffer[offset+1] << 16) |
+                                   (buffer[offset+2] << 8) | buffer[offset+3];
             offset += 4;
 
-            packet.chunksData[i].dataSize = (buffer[offset] << 8) | buffer[offset + 1];
+            primaryBitmasks[i] = (buffer[offset] << 8) | buffer[offset+1];
             offset += 2;
 
-            const size_t dataLength = S21PacketChunkData::func_180737_a(
-                __builtin_popcount(packet.chunksData[i].dataSize),
-                packet.isOverworld, true
-            );
-            packet.chunksData[i].data.resize(dataLength);
+            offset += 2;
+
+            packet.chunksData[i].sections.resize(16);
+            packet.chunksData[i].biomes.resize(256);
         }
 
         for (uint32_t i = 0; i < count; ++i) {
-            if (offset + packet.chunksData[i].data.size() > buffer.size())
-                throw std::runtime_error("Buffer too small for chunk data");
-            std::ranges::copy_n(buffer.begin() + offset,
-                      packet.chunksData[i].data.size(),
-                      packet.chunksData[i].data.begin());
-            offset += packet.chunksData[i].data.size();
+            const uint16_t bitmask = primaryBitmasks[i];
+            auto& extracted = packet.chunksData[i];
+
+            for (int sectionY = 0; sectionY < 16; ++sectionY) {
+                if ((bitmask & (1 << sectionY)) == 0) continue;
+
+                S21PacketChunkData::ChunkSection section;
+
+                // block data: 16*16*16 = 4096 blocks, 2 bytes each
+                section.blocks.resize(16*16*16);
+                for (size_t b = 0; b < section.blocks.size(); ++b) {
+                    if (offset + 2 > buffer.size()) throw std::runtime_error("Unexpected end of chunk data");
+                    section.blocks[b] = static_cast<uint16_t>(buffer[offset]) |
+                                        (static_cast<uint16_t>(buffer[offset+1]) << 8);
+                    offset += 2;
+                }
+
+                // block light: 2048 bytes (16*16*16 / 2 nibbles)
+                if (offset + 2048 > buffer.size()) throw std::runtime_error("Unexpected end of block light data");
+                section.blockLight.insert(section.blockLight.end(), buffer.begin()+offset, buffer.begin()+offset+2048);
+                offset += 2048;
+
+                // skylight: 2048 bytes (overworld only tho)
+                if (packet.isOverworld) {
+                    if (offset + 2048 > buffer.size()) throw std::runtime_error("Unexpected end of skylight data");
+                    section.skyLight.insert(section.skyLight.end(), buffer.begin()+offset, buffer.begin()+offset+2048);
+                    offset += 2048;
+                }
+
+                extracted.sections[sectionY] = std::move(section);
+            }
+
+            // biome array
+            if (offset + 256 > buffer.size()) throw std::runtime_error("Unexpected end of biome data");
+            std::ranges::copy_n(buffer.begin()+offset, 256, extracted.biomes.begin());
+            offset += 256;
         }
 
         return packet;

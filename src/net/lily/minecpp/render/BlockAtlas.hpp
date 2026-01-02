@@ -7,6 +7,7 @@
 #include <string>
 #include <tuple>
 #include <sstream>
+#include <string.h>
 
 #include "BlockAtlas.hpp"
 #include "lib/stb_image.h"
@@ -27,13 +28,13 @@ using BlockAtlasData = std::pair<std::vector<unsigned char>, BlockAtlas>;
 
 class BlockAtlas {
 public:
-    std::unordered_map<std::string, std::pair<int,int>> blockAtlasPos;
+    std::unordered_map<const char*, std::pair<int,int>> blockAtlasPos;
 
     static TextureTile loadPNG(const std::string &path){
         int w, h, n;
         unsigned char* d = stbi_load(path.c_str(), &w, &h, &n, 4);
         if(!d) throw std::runtime_error("Failed to load " + path);
-        TextureTile tile{w, h, std::vector<unsigned char>(d, d + w * h * 4)};
+        TextureTile tile{w, h, std::vector(d, d + w * h * 4)};
         stbi_image_free(d);
         return tile;
     }
@@ -96,13 +97,13 @@ public:
 
         BlockAtlas atlasObj;
         for(size_t i = 0; i < blockNames.size(); ++i){
-            atlasObj.blockAtlasPos[blockNames[i]] = {static_cast<int>(i % atlasTilesPerRow), static_cast<int>(i / atlasTilesPerRow)};
+            atlasObj.blockAtlasPos[strdup(blockNames[i].c_str())] = {static_cast<int>(i % atlasTilesPerRow), static_cast<int>(i / atlasTilesPerRow)};
         }
 
-        return {atlas, atlasObj};
+        return {atlas, std::move(atlasObj)};
     }
 
-    std::tuple<float,float,float,float> getBlockUV(const std::string &blockName) const {
+    std::tuple<float,float,float,float> getBlockUV(const char* blockName) const {
         constexpr float tileSize = 1.0f / atlasTilesPerRow;
         const auto &[tx, ty] = blockAtlasPos.at(blockName);
         return {tx * tileSize, ty * tileSize, (tx + 1) * tileSize, (ty + 1) * tileSize};
@@ -120,7 +121,7 @@ private:
             tiles.push_back(tile);
 
             if(fillBlockNames) blockNames.push_back(entry.path().stem().string());
-            blockAtlasPos[entry.path().stem().string()] = {i % atlasTilesPerRow, i / atlasTilesPerRow};
+            blockAtlasPos[strdup(entry.path().stem().string().c_str())] = {i % atlasTilesPerRow, i / atlasTilesPerRow};
             ++i;
         }
 

@@ -9,7 +9,7 @@
 #define FLOAT static_cast<float>
 #define LONG static_cast<long>
 
-Shader* Chunk::boundShader;
+std::unique_ptr<Shader> Chunk::boundShader = nullptr;
 
 Chunk::Chunk(const int x, const int z, const World* world)
     : world(world), chunkX(x), chunkZ(z) {
@@ -51,27 +51,85 @@ inline uint8_t Chunk::isOpaque(const int x, const int y, const int z) const {
     return BlockUtil::isOpaque(block) ? 1 : 0;
 }
 
+inline void pushVertex(const MeshData &mesh,
+                       const unsigned int x, const  unsigned int y, const unsigned int z,
+                       const uint16_t tileIndex, const uint8_t cornerFlipped) {
+
+    uint8_t flags = 0;
+    if (x >= CHUNK_SIZE) flags |= Chunk::OVERFLOW_X;
+    if (y >= WORLD_HEIGHT) flags |= Chunk::OVERFLOW_Y;
+    if (z >= CHUNK_SIZE) flags |= Chunk::OVERFLOW_Z;
+
+    const unsigned int vertX = std::min(x, 15u);
+    const unsigned int vertY = std::min(y, 255u);
+    const unsigned int vertZ = std::min(z, 15u);
+
+    mesh.vertices.push_back(Vertex{
+        vertX << 12 | vertY << 4 | vertZ,
+        flags << 12 | tileIndex << 3 | cornerFlipped
+    });
+}
+inline void pushQuad(const MeshData &mesh,
+                     const unsigned int verts[4][3],
+                     const unsigned int x, const  unsigned int y, const  unsigned int z,
+                     const uint16_t tileIndex) {
+
+    const unsigned int startIndex = static_cast<unsigned int>(mesh.vertices.size());
+
+    for (uint8_t i = 0; i < 4; ++i) {
+        uint8_t cornerFlipped;
+        switch (i) {
+            case 0: cornerFlipped = 3; break;
+            case 1: cornerFlipped = 2; break;
+            case 2: cornerFlipped = 1; break;
+            case 3: cornerFlipped = 0; break;
+            default: cornerFlipped = i; break;
+        }
+
+        pushVertex(mesh, verts[i][0] + x, verts[i][1] + y, verts[i][2] + z,
+                   tileIndex, cornerFlipped);
+    }
+
+    for (const auto &tri : Chunk::TRIANGLES) {
+        mesh.indices.push_back(startIndex + tri[0]);
+        mesh.indices.push_back(startIndex + tri[1]);
+        mesh.indices.push_back(startIndex + tri[2]);
+    }
+}
+
+uint16_t Chunk::getTileIndex(const BlockAtlas& atlas, const Block block, const int face) {
+    return static_cast<uint16_t>(atlas.blockAtlasPos
+            .at(BlockUtil::getBlockTexture(block, face)).second * atlasTilesPerRow +
+            atlas.blockAtlasPos
+            .at(BlockUtil::getBlockTexture(block, face)).first);
+}
+
 void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
     loaded = false;
     meshData.vertices.clear();
     meshData.indices.clear();
 
-    constexpr unsigned int VERTS[8][3] = {
+    static constexpr unsigned int FACE_VERTS[6][4] = {
+        {3,2,6,7},{1,0,4,5},{0,3,7,4},
+        {2,1,5,6},{4,7,6,5},{0,1,2,3}
+    };
+    static constexpr unsigned int VERTS[8][3] = {
         {0,0,0},{1,0,0},{1,0,1},{0,0,1},
         {0,1,0},{1,1,0},{1,1,1},{0,1,1}
     };
 
-    constexpr unsigned int FACE_VERTS[6][4] = {
-        {3,2,6,7},
-        {1,0,4,5},
-        {0,3,7,4},
-        {2,1,5,6},
-        {4,7,6,5},
-        {0,1,2,3}
-    };
+    auto addFace = [&](unsigned int xPos, unsigned int yPos, unsigned int zPos,
+                       int face, uint16_t tileIndex) {
 
-    constexpr unsigned int TRIANGLES[2][3] = {
-        {0,1,2}, {2,3,0}
+        unsigned int verts[4][3];
+        for (int i = 0; i < 4; ++i) {
+            unsigned int vi = FACE_VERTS[face][i];
+            verts[i][0] = VERTS[vi][0];
+            verts[i][1] = VERTS[vi][1];
+            verts[i][2] = VERTS[vi][2];
+        }
+
+        pushQuad(meshData, verts, xPos, yPos, zPos, tileIndex);
     };
 
     for (int x = 0; x < CHUNK_SIZE; ++x) {
@@ -79,69 +137,43 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
             for (int z = 0; z < CHUNK_SIZE; ++z) {
 
                 const Block block = getBlock(x, y, z);
-                if (block == BLOCK_AIR) {
-                    if (!(x == 0 || x == CHUNK_SIZE-1 || z == 0 || z == CHUNK_SIZE-1)) continue;
+                glm::ivec3 pos{x, y, z};
 
-                    glm::ivec3 pos{x, y, z};
-                    if (const auto it = pendingFaces.find(pos); it != pendingFaces.end()) {
-                        for (const auto &pf : it->second) {
-                            const uint16_t id = pf >> 3;
-                            const uint16_t face = pf & 0x7;
+                if (!BlockUtil::isOpaque(blockId(block))) {
+                    if (x == 0 || x == CHUNK_SIZE-1 || z == 0 || z == CHUNK_SIZE-1) {
+                        // lazy-loaded
+                        if (const auto it = pendingFaces.find(pos); it != pendingFaces.end()) {
+                            for (const auto &pf : it->second) {
+                                const uint16_t face = pf & 0x7;
+                                const uint16_t tileIndex = pf >> 3;
 
-                            // Determine the offset for the pending face
-                            glm::ivec3 offset{0, 0, 0};
-                            switch(face) {
-                                case 0: offset.z = -1; break; // +Z face of neighbor
-                                case 1: offset.z = 1;  break; // -Z face of neighbor
-                                case 2: offset.x = 1;  break; // -X face of neighbor
-                                case 3: offset.x = -1; break; // +X face of neighbor
-                                case 4: offset.y = -1; break; // +Y face of neighbor
-                                case 5: offset.y = 1;  break; // -Y face of neighbor
-                                default: ;
+                                glm::ivec3 offset{0,0,0};
+                                switch(face) {
+                                    case 0: offset.z = -1; break;
+                                    case 1: offset.z = 1; break;
+                                    case 2: offset.x = 1; break;
+                                    case 3: offset.x = -1; break;
+                                    case 4: offset.y = -1; break;
+                                    case 5: offset.y = 1; break;
+                                    default: break;
+                                }
+
+                                const glm::ivec3 realPos = pos + offset;
+                                addFace(realPos.x, realPos.y, realPos.z, face, tileIndex);
                             }
-
-                            const glm::ivec3 realPos = pos + offset;
-
-                            const uint16_t tileIndex =
-                                static_cast<uint16_t>(blockAtlas.second.blockAtlasPos
-                                    .at(BlockUtil::getBlockTexture(block, face)).second * atlasTilesPerRow +
-                                    blockAtlas.second.blockAtlasPos
-                                    .at(BlockUtil::getBlockTexture(block, face)).first);
-
-                            const unsigned int startIndex =
-                                static_cast<unsigned int>(meshData.vertices.size());
-
-                            for (uint8_t i = 0; i < 4; ++i) {
-                                const unsigned int vi = FACE_VERTS[face][i];
-                                meshData.vertices.push_back(Vertex{
-                                    VERTS[vi][0] + FLOAT(realPos.x),
-                                    VERTS[vi][1] + FLOAT(realPos.y),
-                                    VERTS[vi][2] + FLOAT(realPos.z),
-                                    tileIndex,
-                                    i
-                                });
-                            }
-
-                            for (const auto& tri : TRIANGLES) {
-                                meshData.indices.push_back(startIndex + tri[0]);
-                                meshData.indices.push_back(startIndex + tri[1]);
-                                meshData.indices.push_back(startIndex + tri[2]);
-                            }
+                            pendingFaces.erase(it);
                         }
-                        pendingFaces.erase(it);
                     }
-                    continue;
+                    if (block == BLOCK_AIR) continue;
                 }
 
                 const uint16_t id = blockId(block);
-                if (id == 0) continue;
+                if (id == blockId(BLOCK_AIR) || id == blockId(BLOCK_WATER)) continue;
 
+                // Iterate over block faces
                 for (int f = 0; f < 6; ++f) {
-                    int nx = x;
-                    int ny = y;
-                    int nz = z;
-
-                    switch (f) {
+                    int nx = x, ny = y, nz = z;
+                    switch(f) {
                         case 0: ++nz; break;
                         case 1: --nz; break;
                         case 2: --nx; break;
@@ -151,71 +183,28 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
                         default: break;
                     }
 
-                    // ReSharper disable once CppVariableCanBeMadeConstexpr - THIS IS FUCKING WRONG ITS NOT CONSTEXPR YOU FUCKING FUCKER
-                    if (const auto k = isOpaque(nx, ny, nz); k != 0) {
-                        if (k == 2) {
+                    if (const uint8_t k = isOpaque(nx, ny, nz); k != 0) {
+                        if (k == 2) { // cross-chunk
                             int neighborChunkX = chunkX;
                             int neighborChunkZ = chunkZ;
                             int localX = nx;
                             int localZ = nz;
 
-                            if (nx < 0) {
-                                neighborChunkX -= 1;
-                                localX = CHUNK_SIZE - 1;
-                            } else if (nx >= CHUNK_SIZE) {
-                                neighborChunkX += 1;
-                                localX = 0;
-                            }
+                            if (nx < 0) { neighborChunkX -= 1; localX = CHUNK_SIZE - 1; }
+                            else if (nx >= CHUNK_SIZE) { neighborChunkX += 1; localX = 0; }
 
-                            if (nz < 0) {
-                                neighborChunkZ -= 1;
-                                localZ = CHUNK_SIZE - 1;
-                            } else if (nz >= CHUNK_SIZE) {
-                                neighborChunkZ += 1;
-                                localZ = 0;
-                            }
+                            if (nz < 0) { neighborChunkZ -= 1; localZ = CHUNK_SIZE - 1; }
+                            else if (nz >= CHUNK_SIZE) { neighborChunkZ += 1; localZ = 0; }
 
-                            world->addPendingFace(neighborChunkX, neighborChunkZ, {localX, ny, localZ}, static_cast<uint16_t>((id << 3) | f));
+                            const uint16_t tileIndex = getTileIndex(blockAtlas.second, block, f);
+                            world->addPendingFace(neighborChunkX, neighborChunkZ,
+                                                  {localX, ny, localZ},
+                                                  static_cast<uint16_t>(tileIndex << 3 | f));
                         }
                         continue;
                     }
 
-                    const uint16_t tileIndex =
-                        static_cast<uint16_t>(blockAtlas.second.blockAtlasPos
-                            .at(BlockUtil::getBlockTexture(block, f)).second * atlasTilesPerRow +
-                            blockAtlas.second.blockAtlasPos
-                            .at(BlockUtil::getBlockTexture(block, f)).first);
-
-                    const unsigned int startIndex =
-                        static_cast<unsigned int>(meshData.vertices.size());
-
-                    for (uint8_t i = 0; i < 4; ++i) {
-                        const unsigned int vi = FACE_VERTS[f][i];
-
-                        // Map corners to flip V (Y) coordinate
-                        uint8_t cornerFlipped;
-                        switch (i) {
-                            case 0: cornerFlipped = 3; break;
-                            case 1: cornerFlipped = 2; break;
-                            case 2: cornerFlipped = 1; break;
-                            case 3: cornerFlipped = 0; break;
-                            default: cornerFlipped = i; break;
-                        }
-
-                        meshData.vertices.push_back(Vertex{
-                            VERTS[vi][0] + FLOAT(x),
-                            VERTS[vi][1] + FLOAT(y),
-                            VERTS[vi][2] + FLOAT(z),
-                            tileIndex,
-                            cornerFlipped
-                        });
-                    }
-
-                    for (const auto& tri : TRIANGLES) {
-                        meshData.indices.push_back(startIndex + tri[0]);
-                        meshData.indices.push_back(startIndex + tri[1]);
-                        meshData.indices.push_back(startIndex + tri[2]);
-                    }
+                    addFace(x, y, z, f, getTileIndex(blockAtlas.second, block, f));
                 }
             }
         }
@@ -245,13 +234,12 @@ void Chunk::uploadMesh() const {
         GL_STATIC_DRAW
     );
 
-    glVertexAttribPointer(
+    glVertexAttribIPointer(
         0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
+        1,
+        GL_UNSIGNED_SHORT,
         sizeof(Vertex),
-        nullptr
+        reinterpret_cast<void*>(offsetof(Vertex, position))
     );
     glEnableVertexAttribArray(0);
 
@@ -260,23 +248,13 @@ void Chunk::uploadMesh() const {
         1,
         GL_UNSIGNED_SHORT,
         sizeof(Vertex),
-        reinterpret_cast<void*>(offsetof(Vertex, tile))
+        reinterpret_cast<void*>(offsetof(Vertex, tileData))
     );
     glEnableVertexAttribArray(1);
-
-    glVertexAttribIPointer(
-        2,
-        1,
-        GL_UNSIGNED_BYTE,
-        sizeof(Vertex),
-        reinterpret_cast<void*>(offsetof(Vertex, corner))
-    );
-    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 
     initBoundary();
-
     loaded = true;
 }
 
@@ -363,6 +341,10 @@ void Chunk::initBoundary() const {
 
 void Chunk::drawBoundaries(const glm::mat4 &projView) const {
     if (boundaryVAO == 0) return;
+    if (boundShader == nullptr) {
+        std::wcerr << "[WARN] Boundary shader is nullptr" << std::endl;
+        return;
+    }
 
     boundShader->use();
     boundShader->setMat4("uMVP", glm::value_ptr(projView));

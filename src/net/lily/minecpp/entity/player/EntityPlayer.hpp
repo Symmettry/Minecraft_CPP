@@ -50,7 +50,7 @@ public:
     bool serverSneakState = false, serverSprintState = false;
     bool suppressPhysics = false;
 
-    std::string username = "lily5";
+    std::string username = "lily6";
 };
 
 struct EnumPlayerModelParts {

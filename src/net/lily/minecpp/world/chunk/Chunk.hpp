@@ -19,11 +19,11 @@ constexpr int HALF_CHUNK_SIZE = CHUNK_SIZE / 2;
 constexpr int WORLD_HEIGHT = 256;
 
 struct Vertex {
-    float x;        // 4B
-    float y;        // 4B
-    float z;        // 4B
-    uint16_t tile;  // 2B
-    uint8_t corner; // 1B
+    uint16_t position;
+    uint16_t tileData;
+    Vertex() = default;
+
+    Vertex(const unsigned int pos, const int tileData) : position(pos), tileData(tileData) {}
 };
 
 struct MeshData {
@@ -43,6 +43,11 @@ class Chunk : public std::enable_shared_from_this<Chunk> {
 public:
     const World* world;
 
+    static constexpr unsigned int TRIANGLES[2][3] = {
+        {0,1,2}, {2,3,0}
+    };
+    static constexpr uint8_t OVERFLOW_X = 1 << 0, OVERFLOW_Y = 1 << 1, OVERFLOW_Z = 1 << 2;
+
     Chunk(int x, int z, const World* world);
     ~Chunk();
 
@@ -53,12 +58,14 @@ public:
         return std::abs(chunkX - chunk->chunkX) + std::abs(chunkZ - chunk->chunkZ);
     }
 
-    static Shader* boundShader;
+    static std::unique_ptr<Shader> boundShader;
 
     void setBlock(int x, int y, int z, Block block);
 
     [[nodiscard]] Block getBlock(int x, int y, int z) const;
     [[nodiscard]] uint8_t isOpaque(int x, int y, int z) const;
+
+    static uint16_t getTileIndex(const BlockAtlas &atlas, Block block, int face);
 
     void generateMesh(const BlockAtlasData &blockAtlas) const;
     void uploadMesh() const;

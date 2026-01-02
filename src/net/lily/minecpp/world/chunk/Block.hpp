@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <map>
@@ -7,7 +8,10 @@
 #include <array>
 #include <iostream>
 #include <ranges>
+#include <string.h>
+#include <unordered_map>
 
+#include "net/lily/minecpp/render/BlockAtlas.hpp"
 #include "net/lily/minecpp/util/AABB.hpp"
 #include "net/lily/minecpp/util/Zstd.hpp"
 
@@ -257,161 +261,79 @@ constexpr uint8_t blockMeta(const Block b) {
 
 class BlockUtil {
 public:
-    static std::map<uint16_t, BlockDescriptor> blockData;
-    static std::map<uint16_t, std::vector<BlockModel>> blockModels;
+    static constexpr uint16_t INVALID_TEXTURE = 0xFFFF;
+    static const char* textureIds[400];
+    static const char* fallbackTexture;
+    static uint16_t blockTextures[3152*6];
 
-    static void loadBlockData(const std::string &filename) {
+    static const char* getAtlasTexturePtr(const BlockAtlas& atlas, const std::string& texture) {
+        const auto it = std::ranges::find_if(atlas.blockAtlasPos
+                                                     ,
+                                                     [&](const auto &pair){ return strcmp(pair.first, texture.c_str()) == 0; }
+                );
+        if (it == nullptr || it == atlas.blockAtlasPos.end())
+            throw std::runtime_error("Texture not existent in block atlas: " + texture);
+        return it->first;
+    }
+
+    static int convertFacing(const int face) {
+        switch (face) {
+            case 0: return 5; // DOWN
+            case 1: return 4; // UP
+            case 2: return 0; // NORTH
+            case 3: return 1; // SOUTH
+            case 4: return 3; // WEST
+            case 5: return 2; // EAST
+            default: return -1; // invalid index
+        }
+    }
+
+    static void loadBlockTextures(const BlockAtlas& atlas, const std::string &filename) {
         std::string data = Zstd::readZstdFile(filename);
         std::stringstream ss(data);
         std::string line;
         std::getline(ss, line); // skip header
+        int t = 0;
+
+        std::fill_n(blockTextures, 3200 * 6, INVALID_TEXTURE);
+
+        std::unordered_map<std::string, int> textureMap{};
+
         while (std::getline(ss, line)) {
             if (line.empty()) continue;
 
             std::stringstream ss2(line);
-            std::string idStr, subtypeStr, identifier, hardnessStr, resistanceStr, stepStr, opacityStr, lightStr, flagsStr;
-            std::getline(ss2, idStr, ',');
-            std::getline(ss2, subtypeStr, ',');
-            std::getline(ss2, identifier, ',');
-            std::getline(ss2, hardnessStr, ',');
-            std::getline(ss2, resistanceStr, ',');
-            std::getline(ss2, stepStr, ',');
-            std::getline(ss2, opacityStr, ',');
-            std::getline(ss2, lightStr, ',');
-            std::getline(ss2, flagsStr, ',');
+            std::string sblockId, sface, texture;
+            std::getline(ss2, sblockId, ',');
+            std::getline(ss2, sface, ',');
+            std::getline(ss2, texture, ',');
 
-            uint16_t id = std::stoi(idStr);
-            uint8_t subtype = std::stoi(subtypeStr);
-            uint16_t key = (id << 4) | (subtype & 0xF);
+            if (texture == "missingno") continue; // ignore missing
 
-            BlockDescriptor desc;
-            desc.identifier = identifier;
-            desc.hardness = std::stof(hardnessStr);
-            desc.resistance = std::stof(resistanceStr);
-            desc.stepSound = stepStr;
-            desc.lightOpacity = std::stoi(opacityStr);
-            desc.lightLevel = std::stoi(lightStr);
-            desc.flags = std::stoul(flagsStr);
+            const int blockId = std::stoi(sblockId), face = convertFacing(std::stoi(sface));
 
-            blockData[key] = std::move(desc);
+            if (!textureMap.contains(texture)) {
+                textureIds[t] = getAtlasTexturePtr(atlas, texture); // store pointer from atlas
+                textureMap[texture] = t++;
+            }
+            blockTextures[blockId * 6 + face] = textureMap.find(texture)->second;
         }
-    }
-    static void loadBlockStates(const std::string &filename) {
-        std::string data = Zstd::readZstdFile(filename);
-        std::stringstream ss(data);
-        std::string line;
-        std::getline(ss, line); // skip header
-        while (std::getline(ss, line)) {
-            if (line.empty()) continue;
+        fallbackTexture = getAtlasTexturePtr(atlas, "dirt");
 
-            std::stringstream ss2(line);
-            std::string localName, propertyDescriptor, countStr;
-            std::getline(ss2, localName, ',');
-            std::getline(ss2, propertyDescriptor, ',');
-            std::getline(ss2, countStr, ',');
-
-            int count = std::stoi(countStr);
-            std::vector<BlockVariant> variants;
-            for (int i = 0; i < count; ++i) {
-                std::string model, xStr, yStr, uvStr;
-                std::getline(ss2, model, ',');
-                std::getline(ss2, xStr, ',');
-                std::getline(ss2, yStr, ',');
-                std::getline(ss2, uvStr, ',');
-
-                BlockVariant v;
-                v.model = model;
-                v.x = xStr.empty() ? 0 : std::stoi(xStr);
-                v.y = yStr.empty() ? 0 : std::stoi(yStr);
-                v.uvlock = uvStr == "true" || uvStr == "1";
-                variants.push_back(v);
-            }
-
-            for (auto &desc: blockData | std::views::values) {
-                if (desc.identifier == localName) {
-                    desc.variants[propertyDescriptor] = std::move(variants);
-                    break;
-                }
-            }
-        }
-    }
-    static void loadBlockModels(const std::string &filename) {
-        std::string data = Zstd::readZstdFile(filename);
-        std::stringstream ss(data);
-        std::string line;
-        std::getline(ss, line); // skip header
-        while (std::getline(ss, line)) {
-            if(line.empty()) continue;
-
-            std::stringstream ls(line);
-            std::string identifier, comment, from, to;
-            std::array<std::string, 6> textures;
-
-            std::getline(ls, identifier, ',');
-            std::getline(ls, comment, ',');
-            std::getline(ls, from, ',');
-            std::getline(ls, to, ',');
-
-            for(int i = 0; i < 6; ++i) {
-                std::string tex, uv;
-                std::getline(ls, tex, ',');
-                std::getline(ls, uv, ',');
-                if(!tex.empty() && tex.rfind("blocks/", 0) == 0)
-                    tex = tex.substr(7); // remove "blocks/"
-                textures[i] = tex;
-            }
-
-            // assign to all IDs that match identifier
-            for(auto &[key, desc] : blockData) {
-                if(desc.identifier == identifier) {
-                    if (!blockModels[key].empty()) {
-                        std::wcerr << "[WARN] Block " << identifier.c_str() << " registered twice in blockmodels.dat" << "\n";
-                        break;
-                    }
-                    blockModels[key].push_back({identifier, comment, textures});
-                }
-            }
-        }
+        printf("[BlockRegistrar] Registered %d block values, consumed %zu bytes memory.\n", t, sizeof(textureIds) + sizeof(blockTextures));
     }
 
-    static const std::string& getBlockTexture(const Block block, const int face) {
-        static const std::string fallback = "dirt";
-        //
-        // const int id = blockId(block);
-        //
-        // if (id == blockId(BLOCK_DIRT)) printf("A\n");
-        //
-        // const auto itDesc = blockData.find(block);
-        // if (itDesc == blockData.end()) return fallback;
-        //
-        // if (id == blockId(BLOCK_DIRT)) printf("Desc: %s\n", itDesc->second.identifier.c_str());
-        //
-        // const auto& desc = itDesc->second;
-        // if (desc.variants.empty()) return fallback;
-        //
-        // if (id == blockId(BLOCK_DIRT)) printf("Var size: %lu\n", desc.variants.begin()->second.size());
-        //
-        // const auto& firstVariantList = desc.variants.begin()->second;
-        // if (firstVariantList.empty()) return fallback;
-        //
-        // const auto& variant = firstVariantList[0];
-        // const auto& modelName = variant.model;
-        //
-        // if (id == blockId(BLOCK_DIRT)) printf("First var: %s\n", variant.model.c_str());
-
-        const auto itModels = blockModels.find(block);
-        if (itModels == blockModels.end()) return fallback;
-
-        const auto& vec = itModels->second[0];
-
-        printf("T: %d %d %s\n", blockId(block), face, vec.textures[face % vec.textures.size()].c_str());
-
-        return vec.textures[face % vec.textures.size()];
+    static const char* getBlockTexture(const Block block, const int face) {
+        if (block > 3200) return fallbackTexture;
+        const uint16_t tex = blockTextures[block * 6 + face];
+        if (tex == INVALID_TEXTURE) return fallbackTexture;
+        return textureIds[tex];
     }
 
     static constexpr bool isOpaque(const Block block) {
         switch (blockId(block)) {
             // Transparent / non-opaque blocks
+            case blockId(BLOCK_AIR):
             case blockId(BLOCK_ICE):
             case blockId(BLOCK_PACKED_ICE):
             case blockId(BLOCK_GLASS):

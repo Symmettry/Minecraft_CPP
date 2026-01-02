@@ -47,28 +47,28 @@ public:
         client->sendPacket(C00PacketKeepAlive{key});
     }
 
-    void processChunk(const int cx, const int cz, const std::vector<uint8_t>& data) const {
-        const auto chunk = mc->world->getOrMakeChunk(cx, cz);
-        size_t offset = 0;
+    void processChunk(int cx, int cz, S21PacketChunkData::Extracted& chunk) {
+        auto worldChunk = mc->world->getOrMakeChunk(cx, cz);
 
         for (int sectionY = 0; sectionY < 16; ++sectionY) {
+            const auto& section = chunk.sections[sectionY];
+            if (section.blocks.empty()) continue;
+
             for (int y = 0; y < 16; ++y) {
                 for (int z = 0; z < 16; ++z) {
                     for (int x = 0; x < 16; ++x) {
-                        if (offset + 2 > data.size()) break;
-                        const uint16_t rawBlock = data[offset] | (data[offset + 1] << 8);
-                        offset += 2;
+                        size_t idx = y*16*16 + z*16 + x;
+                        uint16_t rawBlock = section.blocks[idx];
+                        int blockId = rawBlock & 0xFFF;
+                        if (blockId == 0) continue;
 
-                        if ((rawBlock & 0xFFF) == 0) continue;
-
-                        const int worldY = sectionY * 16 + y;
-                        chunk->setBlock(x, worldY, z, rawBlock);
+                        worldChunk->setBlock(x, sectionY*16 + y, z, rawBlock);
                     }
                 }
             }
         }
 
-        chunk->queueMesh(mc->renderer->blockAtlas);
+        worldChunk->queueMesh(mc->renderer->blockAtlas);
     }
 
     void handleKeepAlive(const S00PacketKeepAlive& p) const {
@@ -153,19 +153,16 @@ public:
         // todo
     }
 
-    void handleChunkData(const S21PacketChunkData& p) const {
-        processChunk(p.chunkX, p.chunkZ, p.getData());
+    void handleChunkData(const S21PacketChunkData& packet) {
+        S21PacketChunkData::Extracted extracted = packet.extractedData;
+        processChunk(packet.chunkX, packet.chunkZ, extracted);
     }
 
-    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
-        // printf("Received bulk chunks\n");
+    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) {
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
-            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i).data);
+            S21PacketChunkData::Extracted extracted = bulk.getChunkData(i);
+            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), extracted);
         }
-        // for (auto &val: mc->world->chunks | std::views::values) {
-        //     val.generateMesh(mc->renderer->blockAtlas);
-        //     val.uploadMesh();
-        // }
     }
 
     void handlePacket(const ClientBoundPacket& packet) override {

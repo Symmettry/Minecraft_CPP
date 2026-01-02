@@ -10,9 +10,16 @@ public:
     int chunkZ = 0;
     bool groundUp = false;
 
+    struct ChunkSection {
+        std::vector<uint16_t> blocks;      // 16*16*16 blocks, 2 bytes each
+        std::vector<uint8_t> blockLight;   // 2048 bytes (4-bit nibbles)
+        std::vector<uint8_t> skyLight;     // 2048 bytes, only for overworld
+    };
+
     struct Extracted {
-        std::vector<uint8_t> data;
-        int dataSize = 0;
+        std::vector<ChunkSection> sections; // up to 16 sections
+        std::vector<uint8_t> biomes;        // 256 bytes
+        uint16_t primaryBitmask = 0;
     } extractedData;
 
     S21PacketChunkData() : ClientBoundPacket(0x21) {}
@@ -21,47 +28,74 @@ public:
         S21PacketChunkData packet;
         size_t offset = 0;
 
-        if (buffer.size() < 4 + 4 + 1 + 2) 
+        if (buffer.size() < 4 + 4 + 1 + 2)
             throw std::runtime_error("Buffer too small for S21PacketChunkData header");
 
-        // chunkX
         packet.chunkX = (buffer[offset] << 24) | (buffer[offset + 1] << 16) |
                         (buffer[offset + 2] << 8) | buffer[offset + 3];
         offset += 4;
 
-        // chunkZ
         packet.chunkZ = (buffer[offset] << 24) | (buffer[offset + 1] << 16) |
                         (buffer[offset + 2] << 8) | buffer[offset + 3];
         offset += 4;
 
-        // groundUp
         packet.groundUp = buffer[offset++] != 0;
 
-        // data size
-        if (offset + 2 > buffer.size()) throw std::runtime_error("Buffer too small for data size");
-        packet.extractedData.dataSize = (buffer[offset] << 8) | buffer[offset + 1];
+        if (offset + 2 > buffer.size()) throw std::runtime_error("Buffer too small for primary bitmask");
+        packet.extractedData.primaryBitmask = (buffer[offset] << 8) | buffer[offset + 1];
         offset += 2;
 
-        // data
-        if (offset + packet.extractedData.dataSize > buffer.size())
-            throw std::runtime_error("Buffer too small for chunk data");
-        packet.extractedData.data.insert(packet.extractedData.data.end(),
-                                         buffer.begin() + offset,
-                                         buffer.begin() + offset + packet.extractedData.dataSize);
+        const size_t dataLength = getDataLength(
+            __builtin_popcount(packet.extractedData.primaryBitmask),
+            packet.groundUp, true
+        );
+        if (offset + dataLength > buffer.size()) throw std::runtime_error("Buffer too small for chunk data");
+
+        packet.extractedData.sections.resize(16);
+        size_t dataOffset = offset;
+        for (int sectionY = 0; sectionY < 16; ++sectionY) {
+            if ((packet.extractedData.primaryBitmask & (1 << sectionY)) == 0) continue;
+
+            ChunkSection section;
+
+            // 16*16*16 blocks, 2 bytes each
+            section.blocks.resize(16*16*16);
+            for (size_t b = 0; b < section.blocks.size(); ++b) {
+                section.blocks[b] = static_cast<uint16_t>(buffer[dataOffset]) |
+                                    (static_cast<uint16_t>(buffer[dataOffset + 1]) << 8);
+                dataOffset += 2;
+            }
+
+            // block light
+            section.blockLight.insert(section.blockLight.end(),
+                                      buffer.begin() + dataOffset,
+                                      buffer.begin() + dataOffset + 2048);
+            dataOffset += 2048;
+
+            // sky light (if overworld)
+            if (packet.groundUp) {
+                section.skyLight.insert(section.skyLight.end(),
+                                        buffer.begin() + dataOffset,
+                                        buffer.begin() + dataOffset + 2048);
+                dataOffset += 2048;
+            }
+
+            packet.extractedData.sections[sectionY] = std::move(section);
+        }
+
+        // biome array
+        packet.extractedData.biomes.insert(packet.extractedData.biomes.end(),
+                                           buffer.begin() + dataOffset,
+                                           buffer.begin() + dataOffset + 256);
 
         return packet;
     }
 
-    static int func_180737_a(int p_180737_0_, bool p_180737_1_, bool p_180737_2_)
-    {
-        int i = p_180737_0_ * 2 * 16 * 16 * 16;
-        int j = p_180737_0_ * 16 * 16 * 16 / 2;
-        int k = p_180737_1_ ? p_180737_0_ * 16 * 16 * 16 / 2 : 0;
-        int l = p_180737_2_ ? 256 : 0;
-        return i + j + k + l;
-    }
-
-    const std::vector<uint8_t>& getData() const {
-        return extractedData.data;
+    static int getDataLength(int sectionCount, bool isOverworld, bool hasBiome) {
+        int blocks = sectionCount * 2 * 16*16*16;           // 2 bytes per block
+        int blockLight = sectionCount * 16*16*16 / 2;       // 4-bit nibbles
+        int skyLight = isOverworld ? sectionCount * 16*16*16 / 2 : 0;
+        int biome = hasBiome ? 256 : 0;
+        return blocks + blockLight + skyLight + biome;
     }
 };
