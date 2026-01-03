@@ -47,34 +47,33 @@ public:
         client->sendPacket(C00PacketKeepAlive{key});
     }
 
-    void processChunk(int cx, int cz, S21PacketChunkData::Extracted& chunk) {
-        auto worldChunk = mc->world->getOrMakeChunk(cx, cz);
+    void processChunk(const int cx, const int cz, const S21PacketChunkData::Chunk& chunkData) const {
+        const auto chunk = mc->world->getOrMakeChunk(cx, cz);
 
         for (int sectionY = 0; sectionY < 16; ++sectionY) {
-            const auto& section = chunk.sections[sectionY];
-
-            if (section.blocks.empty()) {
-                worldChunk->clearSection(sectionY * 16);
+            const auto& sec = chunkData.sections[sectionY];
+            if (sec.isSkipped) {
+                chunk->clearSection(sectionY);
                 continue;
             }
 
+            const int baseY = sectionY * 16;
+
             for (int y = 0; y < 16; ++y) {
+                const int worldY = baseY + y;
+
                 for (int z = 0; z < 16; ++z) {
                     for (int x = 0; x < 16; ++x) {
-                        const size_t idx = y*16*16 + z*16 + x;
-                        const uint16_t rawBlock = section.blocks[idx];
-                        if (blockId(rawBlock) == 0) continue;
-                        worldChunk->setBlock(x, sectionY*16 + y, z, rawBlock);
+                        const uint16_t block = sec.data[y*16*16 + z*16 + x];
+                        if (blockId(block) == 0) continue;
+
+                        chunk->setBlock(x, worldY, z, block);
                     }
                 }
             }
-
-            // todo: lighting
-            // worldChunk->setBlockLight(sectionY, section.blockLight);
-            // if (chunk.skyLightSent) worldChunk->setSkyLight(sectionY, section.skyLight);
         }
 
-        worldChunk->queueMesh(mc->renderer->blockAtlas);
+        chunk->queueMesh(mc->renderer->blockAtlas);
     }
 
     void handleKeepAlive(const S00PacketKeepAlive& p) const {
@@ -160,14 +159,12 @@ public:
     }
 
     void handleChunkData(const S21PacketChunkData& packet) {
-        S21PacketChunkData::Extracted extracted = packet.extractedData;
-        processChunk(packet.chunkX, packet.chunkZ, extracted);
+        // processChunk(packet.chunkX, packet.chunkZ, packet.extractedData);
     }
 
     void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) {
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
-            S21PacketChunkData::Extracted extracted = bulk.getChunkData(i);
-            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), extracted);
+            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i));
         }
     }
 
