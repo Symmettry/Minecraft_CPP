@@ -18,13 +18,7 @@ constexpr int CHUNK_SIZE = 16;
 constexpr int HALF_CHUNK_SIZE = CHUNK_SIZE / 2;
 constexpr int WORLD_HEIGHT = 256;
 
-struct Vertex {
-    uint16_t position;
-    uint16_t tileData;
-    Vertex() = default;
-
-    Vertex(const unsigned int pos, const int tileData) : position(pos), tileData(tileData) {}
-};
+using Vertex = uint32_t;
 
 struct MeshData {
     mutable std::vector<Vertex> vertices;
@@ -50,6 +44,14 @@ public:
 
     Chunk(int x, int z, const World* world);
     ~Chunk();
+
+    void clearSection(const int y) {
+        for (int x=0;x<CHUNK_SIZE;x++) {
+            for (int z=0;z<CHUNK_SIZE;z++) {
+                setBlock(x, y, z, BLOCK_AIR);
+            }
+        }
+    }
 
     mutable std::unordered_map<glm::ivec3, std::vector<PendingFace>, ivec3Hash> pendingFaces;
 

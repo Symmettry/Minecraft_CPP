@@ -51,23 +51,15 @@ inline uint8_t Chunk::isOpaque(const int x, const int y, const int z) const {
     return BlockUtil::isOpaque(block) ? 1 : 0;
 }
 
+constexpr uint32_t packVertice(const unsigned int x, const unsigned int y, const unsigned int z, const uint16_t tileIndex, const uint8_t corner) {
+    return x << 26 | y << 17 | z << 12 | tileIndex << 3 | corner;
+}
+
+
 inline void pushVertex(const MeshData &mesh,
                        const unsigned int x, const  unsigned int y, const unsigned int z,
                        const uint16_t tileIndex, const uint8_t cornerFlipped) {
-
-    uint8_t flags = 0;
-    if (x >= CHUNK_SIZE) flags |= Chunk::OVERFLOW_X;
-    if (y >= WORLD_HEIGHT) flags |= Chunk::OVERFLOW_Y;
-    if (z >= CHUNK_SIZE) flags |= Chunk::OVERFLOW_Z;
-
-    const unsigned int vertX = std::min(x, 15u);
-    const unsigned int vertY = std::min(y, 255u);
-    const unsigned int vertZ = std::min(z, 15u);
-
-    mesh.vertices.push_back(Vertex{
-        vertX << 12 | vertY << 4 | vertZ,
-        flags << 12 | tileIndex << 3 | cornerFlipped
-    });
+    mesh.vertices.push_back(packVertice(x, y, z, tileIndex, cornerFlipped));
 }
 inline void pushQuad(const MeshData &mesh,
                      const unsigned int verts[4][3],
@@ -221,7 +213,7 @@ void Chunk::uploadMesh() const {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(
         GL_ARRAY_BUFFER,
-        meshData.vertices.size() * sizeof(Vertex),
+        meshData.vertices.size() * sizeof(uint32_t),
         meshData.vertices.data(),
         GL_STATIC_DRAW
     );
@@ -237,20 +229,11 @@ void Chunk::uploadMesh() const {
     glVertexAttribIPointer(
         0,
         1,
-        GL_UNSIGNED_SHORT,
-        sizeof(Vertex),
-        reinterpret_cast<void*>(offsetof(Vertex, position))
+        GL_UNSIGNED_INT,
+        sizeof(uint32_t),
+        nullptr
     );
     glEnableVertexAttribArray(0);
-
-    glVertexAttribIPointer(
-        1,
-        1,
-        GL_UNSIGNED_SHORT,
-        sizeof(Vertex),
-        reinterpret_cast<void*>(offsetof(Vertex, tileData))
-    );
-    glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 

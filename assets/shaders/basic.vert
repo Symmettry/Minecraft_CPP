@@ -1,7 +1,6 @@
 #version 410 core
 
-layout(location = 0) in uint aPos;
-layout(location = 1) in uint aTile;
+layout(location = 0) in uint aVertex;
 
 out vec2 TexCoord;
 
@@ -13,20 +12,16 @@ const uint ATLAS_SIZE = 20u;
 const float TILE = 1.0 / 20.0;
 
 void main() {
-    float x = float((aPos >> 12u) & 0xFu);
-    float y = float((aPos >> 4u) & 0xFFu);
-    float z = float(aPos & 0xFu);
+    // Extract components from packed vertex
+    float x = float((aVertex >> 26u) & 0x1Fu); // 5 bits
+    float y = float((aVertex >> 17u) & 0x1FFu); // 9 bits
+    float z = float((aVertex >> 12u) & 0x1Fu); // 5 bits
 
-    uint flags = (aTile >> 12u) & 0x7u; // bits 12-14
-    if ((flags & 0x1u) != 0u) x += 1.0; // OVERFLOW_X
-    if ((flags & 0x2u) != 0u) y += 1.0; // OVERFLOW_Y
-    if ((flags & 0x4u) != 0u) z += 1.0; // OVERFLOW_Z
+    uint tileIndex = (aVertex >> 3u) & 0x1FFu; // 9 bits
+    uint corner = aVertex & 0x7u; // 3 bits
 
     vec3 pos = vec3(x, y, z);
     gl_Position = projection * view * model * vec4(pos, 1.0);
-
-    uint tileIndex = (aTile >> 3u) & 0x1FFu;
-    uint corner = aTile & 0x7u;
 
     uint tx = tileIndex % ATLAS_SIZE;
     uint ty = tileIndex / ATLAS_SIZE;
