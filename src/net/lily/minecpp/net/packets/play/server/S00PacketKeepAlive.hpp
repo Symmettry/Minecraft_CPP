@@ -1,18 +1,15 @@
 #pragma once
-#include <vector>
-#include "../../Packet.hpp"
 #include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 
-class S00PacketKeepAlive : public ClientBoundPacket {
+class S00PacketKeepAlive final : public ClientBoundPacket {
 public:
     int key = 0;
 
     S00PacketKeepAlive() : ClientBoundPacket(0x00) {}
 
-    static S00PacketKeepAlive deserialize(const std::vector<uint8_t>& data) {
+    static S00PacketKeepAlive deserialize(const PacketBuffer& buf) {
         S00PacketKeepAlive packet;
-        size_t offset = 0;
-        packet.key = static_cast<int>(readVarInt(data, offset));
+        packet.key = static_cast<int>(buf.readVarInt());
         return packet;
     }
 

@@ -1,9 +1,12 @@
 #pragma once
 #include "Packet.hpp"
+#include "PacketBuffer.hpp"
 
 class ServerBoundPacket : public Packet {
 public:
     using Packet::Packet;
 
-    [[nodiscard]] virtual std::vector<uint8_t> serialize() const = 0;
+    PacketBuffer buf{};
+
+    [[nodiscard]] virtual PacketBuffer serialize() const = 0;
 };

@@ -45,10 +45,12 @@ public:
     Chunk(int x, int z, const World* world);
     ~Chunk();
 
-    void clearSection(const int y) {
-        for (int x=0;x<CHUNK_SIZE;x++) {
-            for (int z=0;z<CHUNK_SIZE;z++) {
-                setBlock(x, y, z, BLOCK_AIR);
+    void clearSection(const int sy) {
+        for (int y=sy*16;y<sy*16+16;y++) {
+            for (int x=0;x<CHUNK_SIZE;x++) {
+                for (int z=0;z<CHUNK_SIZE;z++) {
+                    setBlock(x, y, z, BLOCK_AIR);
+                }
             }
         }
     }

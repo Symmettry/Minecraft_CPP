@@ -47,34 +47,33 @@ public:
         client->sendPacket(C00PacketKeepAlive{key});
     }
 
-    void processChunk(int cx, int cz, S21PacketChunkData::Extracted& chunk) {
-        auto worldChunk = mc->world->getOrMakeChunk(cx, cz);
+    void processChunk(const int cx, const int cz, const S21PacketChunkData::Chunk& chunkData) const {
+        const auto chunk = mc->world->getOrMakeChunk(cx, cz);
 
         for (int sectionY = 0; sectionY < 16; ++sectionY) {
-            const auto& section = chunk.sections[sectionY];
-
-            if (section.blocks.empty()) {
-                worldChunk->clearSection(sectionY * 16);
+            const auto& sec = chunkData.sections[sectionY];
+            if (sec.isSkipped) {
+                chunk->clearSection(sectionY);
                 continue;
             }
 
+            const int baseY = sectionY * 16;
+
             for (int y = 0; y < 16; ++y) {
+                const int worldY = baseY + y;
+
                 for (int z = 0; z < 16; ++z) {
                     for (int x = 0; x < 16; ++x) {
-                        const size_t idx = y*16*16 + z*16 + x;
-                        const uint16_t rawBlock = section.blocks[idx];
-                        if (blockId(rawBlock) == 0) continue;
-                        worldChunk->setBlock(x, sectionY*16 + y, z, rawBlock);
+                        const uint16_t block = sec.data[y*16*16 + z*16 + x];
+                        if (blockId(block) == 0) continue;
+
+                        chunk->setBlock(x, worldY, z, block);
                     }
                 }
             }
-
-            // todo: lighting
-            // worldChunk->setBlockLight(sectionY, section.blockLight);
-            // if (chunk.skyLightSent) worldChunk->setSkyLight(sectionY, section.skyLight);
         }
 
-        worldChunk->queueMesh(mc->renderer->blockAtlas);
+        chunk->queueMesh(mc->renderer->blockAtlas);
     }
 
     void handleKeepAlive(const S00PacketKeepAlive& p) const {
@@ -109,7 +108,7 @@ public:
         // todo
     }
 
-    void handleSpawnPosition(const S05PacketSpawnPosition& packet) {
+    void handleSpawnPosition(const S05PacketSpawnPosition& packet) const {
         // todo
     }
 
@@ -119,7 +118,7 @@ public:
         mc->player->foodSaturationLevel = p.saturationLevel;
     }
 
-    void handleRespawn(const S07PacketRespawn& packet) {
+    void handleRespawn(const S07PacketRespawn& packet) const {
         // todo
     }
 
@@ -159,37 +158,35 @@ public:
         // todo
     }
 
-    void handleChunkData(const S21PacketChunkData& packet) {
-        S21PacketChunkData::Extracted extracted = packet.extractedData;
-        processChunk(packet.chunkX, packet.chunkZ, extracted);
+    void handleChunkData(const S21PacketChunkData& packet) const {
+        processChunk(packet.chunkX, packet.chunkZ, packet.chunk);
     }
 
-    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) {
+    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
-            S21PacketChunkData::Extracted extracted = bulk.getChunkData(i);
-            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), extracted);
+            processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i));
         }
     }
 
     void handlePacket(const ClientBoundPacket& packet) override {
         // printf("[NetHandlerPlay] Handling packet S%s\n", Math::toHexString(packet.id, true).c_str());
         switch (packet.id) {
-            case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.data)); break;
-            case 0x01: handleJoinGame(S01PacketJoinGame::deserialize(packet.data)); break;
-            case 0x02: handleChat(S02PacketChat::deserialize(packet.data)); break;
-            case 0x03: handleTimeUpdate(S03PacketTimeUpdate::deserialize(packet.data)); break;
+            case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.buf)); break;
+            case 0x01: handleJoinGame(S01PacketJoinGame::deserialize(packet.buf)); break;
+            case 0x02: handleChat(S02PacketChat::deserialize(packet.buf)); break;
+            case 0x03: handleTimeUpdate(S03PacketTimeUpdate::deserialize(packet.buf)); break;
             // case 0x04: handleEntityEquipment(S04PacketEntityEquipment::deserialize(packet.data)); break;
-            case 0x05: handleSpawnPosition(S05PacketSpawnPosition::deserialize(packet.data)); break;
-            case 0x06: handleUpdateHealth(S06PacketUpdateHealth::deserialize(packet.data)); break;
-            case 0x07: handleRespawn(S07PacketRespawn::deserialize(packet.data)); break;
-            case 0x08: handlePlayerPosLook(S08PacketPlayerPosLook::deserialize(packet.data)); break;
+            case 0x05: handleSpawnPosition(S05PacketSpawnPosition::deserialize(packet.buf)); break;
+            case 0x06: handleUpdateHealth(S06PacketUpdateHealth::deserialize(packet.buf)); break;
+            case 0x07: handleRespawn(S07PacketRespawn::deserialize(packet.buf)); break;
+            case 0x08: handlePlayerPosLook(S08PacketPlayerPosLook::deserialize(packet.buf)); break;
             //<...>
-            case 0x1F: handleSetExperience(S1FPacketSetExperience::deserialize(packet.data)); break;
+            case 0x1F: handleSetExperience(S1FPacketSetExperience::deserialize(packet.buf)); break;
             //<...>
-            case 0x20: handleEntityProperties(S20PacketEntityProperties::deserialize(packet.data)); break;
-            case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.data)); break;
+            case 0x20: handleEntityProperties(S20PacketEntityProperties::deserialize(packet.buf)); break;
+            case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.buf, true)); break; // todo dimension check
             //<...>
-            case 0x26: handleMapChunkBulk(S26PacketMapChunkBulk::deserialize(packet.data)); break;
+            case 0x26: handleMapChunkBulk(S26PacketMapChunkBulk::deserialize(packet.buf)); break;
             //<...>
             default: {
                 printf("Unhandled packet: %s\n", Math::toHexString(packet.id).c_str());

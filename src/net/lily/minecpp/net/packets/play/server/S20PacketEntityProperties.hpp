@@ -7,7 +7,7 @@
 #include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 #include "net/lily/minecpp/util/Attributes.hpp"
 
-class S20PacketEntityProperties : public ClientBoundPacket {
+class S20PacketEntityProperties final : public ClientBoundPacket {
 public:
     int entityId = 0;
 
@@ -21,24 +21,22 @@ public:
 
     S20PacketEntityProperties() : ClientBoundPacket(0x20) {}
 
-    static S20PacketEntityProperties deserialize(const std::vector<uint8_t>& data) {
+    static S20PacketEntityProperties deserialize(const PacketBuffer& buf) {
         S20PacketEntityProperties packet;
-        size_t offset = 0;
-
-        packet.entityId = readVarInt(data, offset);
-        const int snapshotCount = readInt(data, offset);
+        packet.entityId = buf.readVarInt();
+        const int snapshotCount = buf.readInt();
 
         for (int i = 0; i < snapshotCount; ++i) {
             Snapshot snap;
-            snap.attributeName = readString(data, offset, 64);
-            snap.baseValue = readDouble(data, offset);
+            snap.attributeName = buf.readString(64);
+            snap.baseValue = buf.readDouble();
 
-            int modifierCount = readVarInt(data, offset);
+            const int modifierCount = buf.readVarInt();
             for (int j = 0; j < modifierCount; ++j) {
                 AttributeModifier mod;
-                mod.uuid = readUUID(data, offset);
-                mod.amount = readDouble(data, offset);
-                mod.operation = readByte(data, offset);
+                mod.uuid = buf.readUUID();
+                mod.amount = buf.readDouble();
+                mod.operation = buf.readByte();
                 snap.modifiers.push_back(mod);
             }
 

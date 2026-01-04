@@ -5,13 +5,13 @@
 #include <stdexcept>
 #include "../../Packet.hpp"
 #include "net/lily/minecpp/net/packets/ServerBoundPacket.hpp"
+#include "net/lily/minecpp/net/packets/handshake/C00Handshake.hpp"
+#include "net/lily/minecpp/net/packets/login/client/C01PacketEncryptionResponse.hpp"
 
-class C17PacketCustomPayload : public ServerBoundPacket {
+class C17PacketCustomPayload final : public ServerBoundPacket {
 public:
     std::string channel;
     std::vector<uint8_t> data;
-
-    C17PacketCustomPayload() : ServerBoundPacket(0x17) {}
 
     C17PacketCustomPayload(std::string channel, std::vector<uint8_t> data)
         : ServerBoundPacket(0x17), channel(std::move(channel)), data(std::move(data)) {
@@ -22,17 +22,17 @@ public:
 
     C17PacketCustomPayload(std::string channel, const std::string& str)
     : ServerBoundPacket(0x17), channel(std::move(channel)) {
-        Packet::writeString(str, data);
+        buf.writeString(str);
         if (data.size() > 32767) {
             throw std::runtime_error("Payload may not be larger than 32767 bytes");
         }
     }
 
-    std::vector<uint8_t> serialize() const override {
+    PacketBuffer serialize() const override {
         std::vector<uint8_t> buffer;
-        writeString(channel, buffer);
+        buf.writeString(channel);
         if (data.size() > 32767) throw std::runtime_error("Payload may not be larger than 32767 bytes");
         buffer.insert(buffer.end(), data.begin(), data.end());
-        return buffer;
+        return buf;
     }
 };

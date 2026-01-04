@@ -1,14 +1,18 @@
 #pragma once
 #include "Packet.hpp"
+#include "PacketBuffer.hpp"
 
 class ClientBoundPacket : public Packet {
 public:
     using Packet::Packet;
 
-    std::vector<uint8_t> data;
+    const PacketBuffer buf;
 
-    explicit ClientBoundPacket(const uint32_t id, std::vector<uint8_t> data)
-        : Packet(id), data(std::move(data)) {}
+    explicit ClientBoundPacket(const uint32_t id, PacketBuffer& data)
+        : Packet(id), buf(std::move(data)) {}
 
-    static ClientBoundPacket deserialize(const std::vector<uint8_t>& data);
+    explicit ClientBoundPacket() : Packet(0) {}
+
+    static ClientBoundPacket deserialize(const PacketBuffer& buffer);
+
 };
