@@ -10,8 +10,8 @@
 #include <string.h>
 
 #include "BlockAtlas.hpp"
-#include "lib/stb_image.h"
-#include "lib/stb_image_write.h"
+#include "lib/stb_image.hpp"
+#include "lib/stb_image_write.hpp"
 #include <zstd.h>
 
 class BlockAtlas;

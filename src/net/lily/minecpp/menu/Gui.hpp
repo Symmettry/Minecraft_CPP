@@ -1,6 +1,6 @@
 #pragma once
 #define FLOAT static_cast<float>
-#include "glad/glad.h"
+#include "glad/glad.hpp"
 #include "net/lily/minecpp/render/Shader.hpp"
 
 struct Minecraft;

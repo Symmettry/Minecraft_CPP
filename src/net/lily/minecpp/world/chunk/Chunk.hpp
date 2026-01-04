@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
-#include <glad/glad.h>
+#include <glad/glad.hpp>
 
 #include "./Block.hpp"
 #include "net/lily/minecpp/render/BlockAtlas.hpp"

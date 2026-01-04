@@ -8,9 +8,9 @@
 #include "BlockAtlas.hpp"
 #include "net/lily/minecpp/Minecraft.hpp"
 #define STB_IMAGE_IMPLEMENTATION
-#include "lib/stb_image.h"
+#include "lib/stb_image.hpp"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "lib/stb_image_write.h"
+#include "lib/stb_image_write.hpp"
 #include "net/lily/minecpp/util/ChatHistory.hpp"
 #include "net/lily/minecpp/util/FrustumPlanes.hpp"
 
