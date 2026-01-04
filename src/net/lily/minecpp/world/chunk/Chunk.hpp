@@ -36,6 +36,7 @@ struct ivec3Hash {
 class Chunk : public std::enable_shared_from_this<Chunk> {
 public:
     const World* world;
+    const AABB aabb;
 
     static constexpr unsigned int TRIANGLES[2][3] = {
         {0,1,2}, {2,3,0}

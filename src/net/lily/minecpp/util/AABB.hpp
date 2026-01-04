@@ -1,10 +1,12 @@
 #ifndef MINECRAFTCLIENT_AABB_HPP
 #define MINECRAFTCLIENT_AABB_HPP
 
+#include <glm/glm.hpp>
+
 struct AABB {
 
     AABB() = default;
-    AABB(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) : minX(minX), minY(minY), minZ(minZ), maxX(maxX), maxY(maxY), maxZ(maxZ) {}
+    AABB(const double minX, const double minY, const double minZ, const double maxX, const double maxY, const double maxZ) : minX(minX), minY(minY), minZ(minZ), maxX(maxX), maxY(maxY), maxZ(maxZ) {}
 
     double minX{}, minY{}, minZ{};
     double maxX{}, maxY{}, maxZ{};
@@ -33,6 +35,10 @@ struct AABB {
     [[nodiscard]] double calcWidth() const { return maxX - minX; }
     [[nodiscard]] double calcHeight() const { return maxY - minY; }
     [[nodiscard]] double calcDepth() const { return maxZ - minZ; }
+
+    glm::vec3 min() const {
+        return {minX, minY, minZ};
+    }
 };
 
 #endif

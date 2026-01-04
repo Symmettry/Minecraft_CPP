@@ -47,7 +47,7 @@ void Renderer::init() {
 
     glfwSetWindowUserPointer(window, this);
 
-    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int fbWidth, int fbHeight) {
+    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, const int fbWidth, const int fbHeight) {
         glViewport(0, 0, fbWidth, fbHeight);
         if (const auto* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window))) {
             renderer->updateProjection(fbWidth, fbHeight);
@@ -102,7 +102,7 @@ void Renderer::init() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -133,23 +133,8 @@ void Renderer::processInput() const {
         freezeFrustum = !freezeFrustum;
         ChatHistory::addChat("Freeze Frustum: " + std::string(freezeFrustum ? "On" : "Off"));
         if (freezeFrustum) {
-            const float aspect = static_cast<float>(width) / static_cast<float>(height);
-            const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 5.0f, 1000.0f);
-
-            const float partialTicks = mc->timer->partialTicks;
-            const float yaw   = glm::radians(std::fmod(camera->getRotY(partialTicks) + 90, 360));
-            const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.99f, 89.99f));
-
-            glm::vec3 front;
-            front.x = std::cos(yaw) * std::cos(pitch);
-            front.y = std::sin(pitch);
-            front.z = std::sin(yaw) * std::cos(pitch);
-            front = glm::normalize(front);
-
-            glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-            glm::mat4 view = glm::lookAt(glm::vec3(0.0f), front, up);
-
-            frozenProjView = projection * view;
+            // todo
+            // frozenProjView = projection * view;
         }
     }
     f6PressedLastFrame = f6Pressed;
@@ -227,7 +212,7 @@ void Renderer::render(const World* world) const {
     );
 
     const float yaw   = glm::radians(std::fmod(camera->getRotY(partialTicks) + 90, 360));
-    const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.99f, 89.99f)); // gimbal lock i think
+    const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.99f, 89.99f));
 
     glm::vec3 front;
     front.x = std::cos(yaw) * std::cos(pitch);
@@ -235,48 +220,43 @@ void Renderer::render(const World* world) const {
     front.z = std::sin(yaw) * std::cos(pitch);
     front = glm::normalize(front);
 
-    auto up = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f), front, up);
+    constexpr glm::vec3 up(0.0f, 1.0f, 0.0f);
+    glm::mat4 view = glm::lookAt(cameraPos, cameraPos + front, up);
     blockShader->setMat4("view", glm::value_ptr(view));
 
     const float aspect = static_cast<float>(width) / static_cast<float>(height);
     const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
-
     const glm::mat4 projView = projection * view;
 
-    // const auto frustumPlanes = extractFrustumPlanes(freezeFrustum ? frozenProjView : projView);
+    const auto frustumPlanes = extractFrustumPlanes(freezeFrustum ? frozenProjView : projView);
+
     std::vector<ChunkCoord> toRemove;
     for (auto& [pos, chunk] : world->chunks) {
         if (!chunk->loaded) continue;
-        if (chunk->euclDistSqr(mc->player->position) > mc->settings->getRenderDistanceSqrSize()) {
+        if (chunk->euclDistSqr(mc->player->position) > mc->settings->getRenderDistanceSqrSize())
             toRemove.push_back(pos);
-        }
     }
-    for (const auto& pos : toRemove) {
+    for (const auto& pos : toRemove)
         world->chunks.erase(pos);
-    }
 
-    for (auto& [pos, chunk] : world->chunks) {
+    for (const auto &chunk: world->chunks | std::views::values) {
         if (!chunk->loaded) continue;
 
-        glm::vec3 worldPos(pos.x * CHUNK_SIZE, 0, pos.z * CHUNK_SIZE);
-        glm::vec3 relativePos = worldPos - cameraPos; // camera-relative
+        if (!isBoxInFrustum(frustumPlanes, chunk->aabb))
+            continue;
 
-        glm::vec3 min = relativePos;
+        glm::vec3 relativePos = chunk->aabb.min() - cameraPos;
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), relativePos);
 
-        // if (glm::vec3 max = relativePos + glm::vec3(CHUNK_SIZE); isBoxInFrustum(frustumPlanes, min, max)) {
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), relativePos);
+        if (mc->settings->chunkBoundaries &&
+            chunk->getMHChunkDist(mc->world->getLoadedChunkAt(mc->player->position.x, mc->player->position.z)) <= 1) {
+            chunk->drawBoundaries(projView * model);
+        }
 
-            if (mc->settings->chunkBoundaries && chunk->getMHChunkDist(mc->world->getLoadedChunkAt(mc->player->position.x, mc->player->position.z)) <= 1) {
-                chunk->drawBoundaries(projView * model);
-            }
-
-            chunk->draw(blockShader, model);
-        // }
+        chunk->draw(blockShader, model);
     }
 
     GLenum err;
-    while ((err = glGetError()) != GL_NO_ERROR) {
+    while ((err = glGetError()) != GL_NO_ERROR)
         std::cerr << "OpenGL error: " << err << "\n";
-    }
 }

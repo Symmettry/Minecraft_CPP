@@ -12,7 +12,7 @@
 std::unique_ptr<Shader> Chunk::boundShader = nullptr;
 
 Chunk::Chunk(const int x, const int z, const World* world)
-    : world(world), chunkX(x), chunkZ(z) {
+    : world(world), chunkX(x), chunkZ(z), aabb(x * CHUNK_SIZE, 0, z * CHUNK_SIZE, x * CHUNK_SIZE + CHUNK_SIZE, WORLD_HEIGHT, z * CHUNK_SIZE + CHUNK_SIZE) {
     blocks.fill(BLOCK_AIR);
     if (const auto it = world->pendingFace4Chunks.find({x, z}); it != world->pendingFace4Chunks.end()) {
         for (auto &[fst, snd] : it->second) {
@@ -28,7 +28,7 @@ Chunk::~Chunk() {
     if (EBO != 0) glDeleteBuffers(1, &EBO);
 }
 
-void Chunk::setBlock(const int x, const int y, const int z, Block block) {
+void Chunk::setBlock(const int x, const int y, const int z, const Block block) {
     if (x < 0 || y < 0 || z < 0 ||
         x >= CHUNK_SIZE || y >= WORLD_HEIGHT || z >= CHUNK_SIZE)
         return;
@@ -110,12 +110,12 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
         {0,1,0},{1,1,0},{1,1,1},{0,1,1}
     };
 
-    auto addFace = [&](unsigned int xPos, unsigned int yPos, unsigned int zPos,
-                       int face, uint16_t tileIndex) {
+    auto addFace = [&](const unsigned int xPos, const unsigned int yPos, const unsigned int zPos,
+                       const int face, const uint16_t tileIndex) {
 
         unsigned int verts[4][3];
         for (int i = 0; i < 4; ++i) {
-            unsigned int vi = FACE_VERTS[face][i];
+            const unsigned int vi = FACE_VERTS[face][i];
             verts[i][0] = VERTS[vi][0];
             verts[i][1] = VERTS[vi][1];
             verts[i][2] = VERTS[vi][2];
@@ -246,8 +246,7 @@ void Chunk::initBoundary() const {
 
     std::vector<float> vertices;
 
-    // Spacing
-    const int step = 2;
+    constexpr int step = 2;
 
     // X-Z faces (bottom and top)
     for (int x = 0; x <= CHUNK_SIZE; x += step) {
@@ -323,6 +322,8 @@ void Chunk::initBoundary() const {
 
 
 void Chunk::drawBoundaries(const glm::mat4 &projView) const {
+    // todo this currently segfaults
+
     if (boundaryVAO == 0) return;
     if (boundShader == nullptr) {
         std::wcerr << "[WARN] Boundary shader is nullptr" << std::endl;
