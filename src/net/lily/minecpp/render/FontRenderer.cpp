@@ -3,7 +3,7 @@
 #include "FontRenderer.hpp"
 #include <filesystem>
 
-#include "lib/stb_image.h"
+#include "lib/stb_image.hpp"
 #include <iostream>
 #include <glm/vec4.hpp>
 
