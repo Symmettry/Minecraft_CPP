@@ -158,11 +158,11 @@ public:
         // todo
     }
 
-    void handleChunkData(const S21PacketChunkData& packet) {
-        // processChunk(packet.chunkX, packet.chunkZ, packet.extractedData);
+    void handleChunkData(const S21PacketChunkData& packet) const {
+        processChunk(packet.chunkX, packet.chunkZ, packet.chunk);
     }
 
-    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) {
+    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
             processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i));
         }
@@ -184,7 +184,7 @@ public:
             case 0x1F: handleSetExperience(S1FPacketSetExperience::deserialize(packet.data)); break;
             //<...>
             case 0x20: handleEntityProperties(S20PacketEntityProperties::deserialize(packet.data)); break;
-            case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.data)); break;
+            case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.data, true)); break; // todo dimension check
             //<...>
             case 0x26: handleMapChunkBulk(S26PacketMapChunkBulk::deserialize(packet.data)); break;
             //<...>

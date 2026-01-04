@@ -137,6 +137,12 @@ public:
         offset += 2;
         return value;
     }
+    static uint16_t readBlock(const std::vector<uint8_t>& data, size_t& offset) {
+        if (offset + 2 > data.size()) throw std::runtime_error("Buffer too small for block");
+        const uint16_t value = data[offset] | (data[offset + 1] << 8);
+        offset += 2;
+        return value;
+    }
 
     static uint8_t readByte(const std::vector<uint8_t>& data, size_t& offset) {
         if (offset >= data.size()) throw std::runtime_error("Buffer too small for byte");

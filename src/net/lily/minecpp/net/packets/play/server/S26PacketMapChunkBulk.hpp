@@ -32,7 +32,7 @@ public:
         }
 
         for (uint32_t i = 0; i < count; ++i) {
-            packet.chunksData[i] = S21PacketChunkData::deserializeChunk(packet.chunksData[i], true, packet.isOverworld, buffer, offset);
+            S21PacketChunkData::deserializeChunk(packet.chunksData[i], true, packet.isOverworld, buffer, offset);
         }
 
         confirm(buffer, offset);
