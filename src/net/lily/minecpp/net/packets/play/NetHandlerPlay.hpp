@@ -108,7 +108,7 @@ public:
         // todo
     }
 
-    void handleSpawnPosition(const S05PacketSpawnPosition& packet) {
+    void handleSpawnPosition(const S05PacketSpawnPosition& packet) const {
         // todo
     }
 
@@ -118,7 +118,7 @@ public:
         mc->player->foodSaturationLevel = p.saturationLevel;
     }
 
-    void handleRespawn(const S07PacketRespawn& packet) {
+    void handleRespawn(const S07PacketRespawn& packet) const {
         // todo
     }
 
@@ -171,22 +171,22 @@ public:
     void handlePacket(const ClientBoundPacket& packet) override {
         // printf("[NetHandlerPlay] Handling packet S%s\n", Math::toHexString(packet.id, true).c_str());
         switch (packet.id) {
-            case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.data)); break;
-            case 0x01: handleJoinGame(S01PacketJoinGame::deserialize(packet.data)); break;
-            case 0x02: handleChat(S02PacketChat::deserialize(packet.data)); break;
-            case 0x03: handleTimeUpdate(S03PacketTimeUpdate::deserialize(packet.data)); break;
+            case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.buf)); break;
+            case 0x01: handleJoinGame(S01PacketJoinGame::deserialize(packet.buf)); break;
+            case 0x02: handleChat(S02PacketChat::deserialize(packet.buf)); break;
+            case 0x03: handleTimeUpdate(S03PacketTimeUpdate::deserialize(packet.buf)); break;
             // case 0x04: handleEntityEquipment(S04PacketEntityEquipment::deserialize(packet.data)); break;
-            case 0x05: handleSpawnPosition(S05PacketSpawnPosition::deserialize(packet.data)); break;
-            case 0x06: handleUpdateHealth(S06PacketUpdateHealth::deserialize(packet.data)); break;
-            case 0x07: handleRespawn(S07PacketRespawn::deserialize(packet.data)); break;
-            case 0x08: handlePlayerPosLook(S08PacketPlayerPosLook::deserialize(packet.data)); break;
+            case 0x05: handleSpawnPosition(S05PacketSpawnPosition::deserialize(packet.buf)); break;
+            case 0x06: handleUpdateHealth(S06PacketUpdateHealth::deserialize(packet.buf)); break;
+            case 0x07: handleRespawn(S07PacketRespawn::deserialize(packet.buf)); break;
+            case 0x08: handlePlayerPosLook(S08PacketPlayerPosLook::deserialize(packet.buf)); break;
             //<...>
-            case 0x1F: handleSetExperience(S1FPacketSetExperience::deserialize(packet.data)); break;
+            case 0x1F: handleSetExperience(S1FPacketSetExperience::deserialize(packet.buf)); break;
             //<...>
-            case 0x20: handleEntityProperties(S20PacketEntityProperties::deserialize(packet.data)); break;
-            case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.data, true)); break; // todo dimension check
+            case 0x20: handleEntityProperties(S20PacketEntityProperties::deserialize(packet.buf)); break;
+            case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.buf, true)); break; // todo dimension check
             //<...>
-            case 0x26: handleMapChunkBulk(S26PacketMapChunkBulk::deserialize(packet.data)); break;
+            case 0x26: handleMapChunkBulk(S26PacketMapChunkBulk::deserialize(packet.buf)); break;
             //<...>
             default: {
                 printf("Unhandled packet: %s\n", Math::toHexString(packet.id).c_str());

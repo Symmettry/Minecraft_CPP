@@ -4,7 +4,7 @@
 #include "../../Packet.hpp"
 #include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 
-class S00PacketDisconnect : public ClientBoundPacket {
+class S00PacketDisconnect final : public ClientBoundPacket {
 public:
     std::string reason;
 
@@ -13,10 +13,9 @@ public:
     explicit S00PacketDisconnect(const std::string& reasonIn)
         : ClientBoundPacket(0x00), reason(reasonIn) {}
 
-    static S00PacketDisconnect deserialize(const std::vector<uint8_t>& data) {
+    static S00PacketDisconnect deserialize(const PacketBuffer& buf) {
         S00PacketDisconnect packet;
-        size_t offset = 0;
-        packet.reason = readString(data, offset);
+        packet.reason = buf.readString();
         return packet;
     }
 

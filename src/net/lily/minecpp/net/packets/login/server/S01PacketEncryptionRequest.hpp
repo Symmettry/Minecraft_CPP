@@ -1,9 +1,8 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "../../Packet.hpp"
 
-class S01PacketEncryptionRequest : public ClientBoundPacket {
+class S01PacketEncryptionRequest final : public ClientBoundPacket {
 public:
     std::string hashedServerId;
     std::vector<uint8_t> publicKeyEncoded;
@@ -11,13 +10,12 @@ public:
 
     S01PacketEncryptionRequest() : ClientBoundPacket(0x01) {}
 
-    static S01PacketEncryptionRequest deserialize(const std::vector<uint8_t>& data) {
+    static S01PacketEncryptionRequest deserialize(const PacketBuffer& buf) {
         S01PacketEncryptionRequest packet;
-        size_t offset = 0;
 
-        packet.hashedServerId = readString(data, offset, 20);
-        packet.publicKeyEncoded = readByteArray(data, offset);
-        packet.verifyToken = readByteArray(data, offset);
+        packet.hashedServerId = buf.readString(20);
+        packet.publicKeyEncoded = buf.readByteArray();
+        packet.verifyToken = buf.readByteArray();
 
         return packet;
     }

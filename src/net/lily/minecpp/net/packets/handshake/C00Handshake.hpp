@@ -1,9 +1,8 @@
 #pragma once
 #include <string>
-#include <vector>
 
-#include "../Packet.hpp"
 #include "net/lily/minecpp/net/packets/ServerBoundPacket.hpp"
+#include "net/lily/minecpp/net/packets/login/client/C01PacketEncryptionResponse.hpp"
 
 enum class ConnectionState : uint32_t {
     HANDSHAKE = 0,
@@ -12,7 +11,7 @@ enum class ConnectionState : uint32_t {
     PLAY = 3
 };
 
-class C00Handshake : public ServerBoundPacket {
+class C00Handshake final : public ServerBoundPacket {
 public:
     int protocolVersion;
     std::string ip;
@@ -24,19 +23,16 @@ public:
         : ServerBoundPacket(0x00), protocolVersion(version), ip(address), port(port), requestedState(state) {
     }
 
-    [[nodiscard]] std::vector<uint8_t> serialize() const override {
-        std::vector<uint8_t> buffer;
+    [[nodiscard]] PacketBuffer serialize() const override {
+        buf.writeVarInt(protocolVersion);
 
-        writeVarInt(protocolVersion, buffer);
+        const std::string ipWithMarker = ip + "\0FML\0";
+        buf.writeString(ipWithMarker);
 
-        std::string ipWithMarker = ip + "\0FML\0";
-        writeString(ipWithMarker, buffer);
+        buf.writeUShort(port);
 
-        buffer.push_back(port >> 8);
-        buffer.push_back(port & 0xFF);
+        buf.writeVarInt(static_cast<uint32_t>(requestedState));
 
-        writeVarInt(static_cast<uint32_t>(requestedState), buffer);
-
-        return buffer;
+        return buf;
     }
 };

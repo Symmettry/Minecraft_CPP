@@ -26,19 +26,19 @@ public:
         // std::cout << "[Login] Packet ID: " << packet.id << ", length: " << packet.data.size() << "\n";
         switch (packet.id) {
             case 0x00: { // Disconnect
-                const auto p = S00PacketDisconnect::deserialize(packet.data);
+                const auto p = S00PacketDisconnect::deserialize(packet.buf);
                 // std::cout << "[Login] Disconnected: " << p.reason << "\n";
                 break;
             }
             case 0x01: { // Encryption request
-                const auto p = S01PacketEncryptionRequest::deserialize(packet.data);
+                const auto p = S01PacketEncryptionRequest::deserialize(packet.buf);
                 serverPublicKey = p.publicKeyEncoded;
                 verifyToken = p.verifyToken;
                 // std::cout << "[Login] Received encryption request, serverId: " << p.hashedServerId << "\n";
                 break;
             }
             case 0x02: { // Login success
-                const auto p = S02PacketLoginSuccess::deserialize(packet.data);
+                const auto p = S02PacketLoginSuccess::deserialize(packet.buf);
                 uuid = p.uuid;
                 username = p.username;
                 // std::cout << "[Login] Login success! UUID: " << uuid << ", Username: " << username << "\n";
@@ -47,7 +47,7 @@ public:
                 break;
             }
             case 0x03: { // Enable compression
-                const auto p = S03PacketEnableCompression::deserialize(packet.data);
+                const auto p = S03PacketEnableCompression::deserialize(packet.buf);
                 client->stream_.setCompression(p.compressionThreshold);
                 std::cout << "[Login] Enable compression: " << p.compressionThreshold << "\n";
                 break;

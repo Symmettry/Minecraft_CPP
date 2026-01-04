@@ -47,12 +47,12 @@ void NetClient::disconnect() {
 bool NetClient::sendPacket(const ServerBoundPacket &packet) const {
     const auto serialized = packet.serialize();
     // printf("Sending packet with id: %d, length: %lu\n", packet.id, serialized.size());
-    return stream_.sendPacket(packet.id, serialized);
+    return stream_.sendPacket(packet.id, serialized.buffer);
 }
 
 void NetClient::networkLoop() const {
     while (running_) {
-        if (ClientBoundPacket packet{0}; stream_.receivePacket(packet.id, packet.data)) {
+        if (ClientBoundPacket packet; stream_.receivePacket(packet.id, packet.buf.buffer)) {
 
             handler_->handlePacket(packet);
 

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "net/lily/minecpp/net/packets/ServerBoundPacket.hpp"
 
-class C01PacketEncryptionResponse : public ServerBoundPacket {
+class C01PacketEncryptionResponse final : public ServerBoundPacket {
 public:
     std::vector<uint8_t> secretKeyEncrypted;
     std::vector<uint8_t> verifyTokenEncrypted;
@@ -14,12 +14,10 @@ public:
                                 const std::vector<uint8_t>& encryptedVerifyToken)
         : ServerBoundPacket(0x01), secretKeyEncrypted(encryptedSecretKey), verifyTokenEncrypted(encryptedVerifyToken) {}
 
-    std::vector<uint8_t> serialize() const override {
-        std::vector<uint8_t> buffer;
+    PacketBuffer serialize() const override {
+        buf.writeByteArray(secretKeyEncrypted);
+        buf.writeByteArray(verifyTokenEncrypted);
 
-        writeByteArray(secretKeyEncrypted, buffer);
-        writeByteArray(verifyTokenEncrypted, buffer);
-
-        return buffer;
+        return buf;
     }
 };

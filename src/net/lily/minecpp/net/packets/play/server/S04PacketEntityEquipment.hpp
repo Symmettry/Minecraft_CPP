@@ -1,12 +1,8 @@
 #pragma once
-#include <vector>
-#include <cstdint>
-#include <memory>
-#include "../../Packet.hpp"
 #include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 // #include "ItemStack.hpp"
 
-class S04PacketEntityEquipment : public ClientBoundPacket {
+class S04PacketEntityEquipment final : public ClientBoundPacket {
 public:
     // int32_t entityID = 0;
     // int16_t equipmentSlot = 0;

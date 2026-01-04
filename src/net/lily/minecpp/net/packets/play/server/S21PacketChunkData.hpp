@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 
-class S21PacketChunkData : public ClientBoundPacket {
+class S21PacketChunkData final : public ClientBoundPacket {
 public:
     int chunkX = 0;
     int chunkZ = 0;
@@ -26,42 +26,41 @@ public:
     S21PacketChunkData() : ClientBoundPacket(0x21), extractedData(), chunk() {
     }
 
-    static S21PacketChunkData deserialize(const std::vector<uint8_t>& buffer, const bool isOverworld) {
+    static S21PacketChunkData deserialize(const PacketBuffer& buf, const bool isOverworld) {
         S21PacketChunkData packet;
-        size_t offset = 0;
 
-        packet.chunkX = readInt(buffer, offset);
-        packet.chunkZ = readInt(buffer, offset);
+        packet.chunkX = buf.readInt();
+        packet.chunkZ = buf.readInt();
 
-        packet.groundUp = readBool(buffer, offset);
-        packet.chunk.bitMask = readShort(buffer, offset);
-        packet.chunk.size = readVarInt(buffer, offset);
+        packet.groundUp = buf.readBool();
+        packet.chunk.bitMask = buf.readShort();
+        packet.chunk.size = buf.readVarInt();
 
-        deserializeChunk(packet.chunk, packet.groundUp, isOverworld, buffer, offset);
+        deserializeChunk(packet.chunk, packet.groundUp, isOverworld, buf);
 
-        confirm(buffer, offset);
+        buf.confirm();
 
         return packet;
     }
 
-    static void deserializeChunk(Chunk& chunk, const bool continuous, const bool isOverworld, const std::vector<uint8_t>& buffer, size_t& offset) {
+    static void deserializeChunk(Chunk& chunk, const bool continuous, const bool skyLightSent, const PacketBuffer& buf) {
         for (int s = 0; s < 16; s++) {
             auto&[data, blockLight, skyLight, isSkipped] = chunk.sections[s];
             isSkipped = !(chunk.bitMask & 1 << s);
             if (isSkipped) continue;
 
             for (int b = 0; b < 4096; b++)
-                data[b] = readBlock(buffer, offset);
+                data[b] = buf.readBlock();
 
             for (int l = 0; l < 2048; l++) {
-                const uint8_t light = readByte(buffer, offset);
+                const uint8_t light = buf.readByte();
                 blockLight[l * 2] = light >> 4;
                 blockLight[l * 2 + 1] = light & 0x0F;
             }
 
-            if (isOverworld) {
+            if (skyLightSent) {
                 for (int l = 0; l < 2048; l++) {
-                    const uint8_t light = readByte(buffer, offset);
+                    const uint8_t light = buf.readByte();
                     skyLight[l * 2] = light >> 4;
                     skyLight[l * 2 + 1] = light & 0x0F;
                 }
@@ -70,7 +69,7 @@ public:
 
         if (continuous) {
             for (int c = 0; c < 256; c++)
-                chunk.biomes[c] = readByte(buffer, offset);
+                chunk.biomes[c] = buf.readByte();
         }
     }
 

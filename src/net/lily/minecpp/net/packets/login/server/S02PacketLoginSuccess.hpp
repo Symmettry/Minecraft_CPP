@@ -1,22 +1,18 @@
 #pragma once
 #include <string>
-#include <vector>
-#include "../../Packet.hpp"
 
-class S02PacketLoginSuccess : public ClientBoundPacket {
+class S02PacketLoginSuccess final : public ClientBoundPacket {
 public:
     std::string uuid;
     std::string username;
 
     S02PacketLoginSuccess() : ClientBoundPacket(0x02) {}
 
-    // Deserialize received packet from server
-    static S02PacketLoginSuccess deserialize(const std::vector<uint8_t>& data) {
+    static S02PacketLoginSuccess deserialize(const PacketBuffer& buf) {
         S02PacketLoginSuccess packet;
-        size_t offset = 0;
 
-        packet.uuid = readString(data, offset, 36);
-        packet.username = readString(data, offset, 16);
+        packet.uuid = buf.readString(36);
+        packet.username = buf.readString(16);
 
         return packet;
     }
