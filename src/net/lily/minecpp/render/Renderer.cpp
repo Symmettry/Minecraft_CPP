@@ -123,21 +123,8 @@ void Renderer::init() {
 }
 
 void Renderer::processInput() const {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
-    static bool f6PressedLastFrame = false;
-    const bool f6Pressed = glfwGetKey(window, GLFW_KEY_F6) == GLFW_PRESS;
-
-    if (f6Pressed && !f6PressedLastFrame) {
-        freezeFrustum = !freezeFrustum;
-        ChatHistory::addChat("Freeze Frustum: " + std::string(freezeFrustum ? "On" : "Off"));
-        if (freezeFrustum) {
-            // todo
-            // frozenProjView = projection * view;
-        }
-    }
-    f6PressedLastFrame = f6Pressed;
+    // if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    //     glfwSetWindowShouldClose(window, true);
 }
 
 bool Renderer::shouldClose() const {
@@ -221,7 +208,7 @@ void Renderer::render(const World* world) const {
     front = glm::normalize(front);
 
     constexpr glm::vec3 up(0.0f, 1.0f, 0.0f);
-    glm::mat4 view = glm::lookAt(cameraPos, cameraPos + front, up);
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f), front, up);
     blockShader->setMat4("view", glm::value_ptr(view));
 
     const float aspect = static_cast<float>(width) / static_cast<float>(height);
@@ -239,13 +226,13 @@ void Renderer::render(const World* world) const {
     for (const auto& pos : toRemove)
         world->chunks.erase(pos);
 
-    for (const auto &chunk: world->chunks | std::views::values) {
+    for (const auto &[pos, chunk]: world->chunks) {
         if (!chunk->loaded) continue;
 
-        if (!isBoxInFrustum(frustumPlanes, chunk->aabb))
-            continue;
+        glm::vec3 worldPos(pos.x * CHUNK_SIZE, 0, pos.z * CHUNK_SIZE);
+        glm::vec3 relativePos = worldPos - cameraPos;
+    if (!isBoxInFrustum(frustumPlanes, AABB{relativePos, relativePos + glm::vec3(CHUNK_SIZE, WORLD_HEIGHT, CHUNK_SIZE)})) continue;
 
-        glm::vec3 relativePos = chunk->aabb.min() - cameraPos;
         glm::mat4 model = glm::translate(glm::mat4(1.0f), relativePos);
 
         if (mc->settings->chunkBoundaries &&

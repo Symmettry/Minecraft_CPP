@@ -11,7 +11,7 @@ public:
     bool groundUp = false;
 
     struct Extracted {
-        uint16_t data[4096];
+        Block blocks[4096];
         uint8_t blockLight[4096], skyLight[4096];
         bool isSkipped;
     } extractedData;

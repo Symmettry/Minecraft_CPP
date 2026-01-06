@@ -7,6 +7,7 @@ struct AABB {
 
     AABB() = default;
     AABB(const double minX, const double minY, const double minZ, const double maxX, const double maxY, const double maxZ) : minX(minX), minY(minY), minZ(minZ), maxX(maxX), maxY(maxY), maxZ(maxZ) {}
+    AABB(const glm::vec3 min, const glm::vec3 max) : minX(min.x), minY(min.y), minZ(min.z), maxX(max.x), maxY(max.y), maxZ(max.z) {}
 
     double minX{}, minY{}, minZ{};
     double maxX{}, maxY{}, maxZ{};

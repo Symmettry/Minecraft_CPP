@@ -178,7 +178,7 @@ struct PacketBuffer {
         offset += 2;
         return value;
     }
-    uint16_t readBlock() const {
+    Block readBlock() const {
         require("Block", 2);
         const uint16_t value = buffer[offset] | (buffer[offset + 1] << 8);
         offset += 2;

@@ -30,7 +30,7 @@
 #include "server/S21PacketChunkData.hpp"
 #include "server/S26PacketMapChunkBulk.hpp"
 
-class NetHandlerPlay : public NetHandler {
+class NetHandlerPlay final : public NetHandler {
 public:
 
     mutable bool doneLoadingTerrain = false;
@@ -64,7 +64,7 @@ public:
 
                 for (int z = 0; z < 16; ++z) {
                     for (int x = 0; x < 16; ++x) {
-                        const uint16_t block = sec.data[y*16*16 + z*16 + x];
+                        const Block block = sec.blocks[y*16*16 + z*16 + x];
                         if (blockId(block) == 0) continue;
 
                         chunk->setBlock(x, worldY, z, block);
