@@ -6,6 +6,7 @@
 
 #include <glm/glm.hpp>
 #include "net/lily/minecpp/util/Math.hpp"
+#include "net/lily/minecpp/world/chunk/Block.hpp"
 
 struct PacketBuffer {
 

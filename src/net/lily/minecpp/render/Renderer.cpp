@@ -132,7 +132,7 @@ bool Renderer::shouldClose() const {
 
 void Renderer::updateProjection(const int fbWidth, const int fbHeight) const {
     const float aspect = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
-    const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 100.0f);
+    const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
 
     blockShader->use();
     blockShader->setMat4("projection", glm::value_ptr(projection));
