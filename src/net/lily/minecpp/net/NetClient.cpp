@@ -54,7 +54,9 @@ void NetClient::networkLoop() const {
     while (running_) {
         if (ClientBoundPacket packet; stream_.receivePacket(packet.id, packet.buf.buffer)) {
 
-            handler_->handlePacket(packet);
+            if (handler_->handlePacket(packet)) {
+                packet.buf.confirm("S" + Math::toHexString(packet.id));
+            }
 
             // Debug log
             // std::cout << "[NetClient] Received packet S" << Math::toHexString(packet.id, true)

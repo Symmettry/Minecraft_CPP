@@ -10,9 +10,11 @@
 #define LONG static_cast<long>
 
 std::unique_ptr<Shader> Chunk::boundShader = nullptr;
+std::atomic<int> Chunk::loadingMeshes = {0};
 
 Chunk::Chunk(const int x, const int z, const World* world)
-    : world(world), chunkX(x), chunkZ(z), aabb(x * CHUNK_SIZE, 0, z * CHUNK_SIZE, x * CHUNK_SIZE + CHUNK_SIZE, WORLD_HEIGHT, z * CHUNK_SIZE + CHUNK_SIZE) {
+    : world(world), mc(world->mc), chunkX(x), chunkZ(z),
+      worldPos(x * CHUNK_SIZE, 0, z * CHUNK_SIZE){
     blocks.fill(BLOCK_AIR);
     if (const auto it = world->pendingFace4Chunks.find({x, z}); it != world->pendingFace4Chunks.end()) {
         for (auto &[fst, snd] : it->second) {
@@ -25,19 +27,19 @@ Chunk::Chunk(const int x, const int z, const World* world)
 Chunk::~Chunk() {
     if (VAO != 0) glDeleteVertexArrays(1, &VAO);
     if (VBO != 0) glDeleteBuffers(1, &VBO);
-    if (EBO != 0) glDeleteBuffers(1, &EBO);
 }
 
 void Chunk::setBlock(const int x, const int y, const int z, const Block block) {
-    if (x < 0 || y < 0 || z < 0 ||
-        x >= CHUNK_SIZE || y >= WORLD_HEIGHT || z >= CHUNK_SIZE)
-        return;
-
     blocks[index(x, y, z)] = block;
 }
 
 Block Chunk::getBlock(const int x, const int y, const int z) const {
     return blocks[index(x, y, z)];
+}
+
+void Chunk::testCull(const std::array<Plane, 6> &frustumPlanes, const glm::vec3 cameraPos) const {
+    const glm::vec3 relativePos = worldPos - cameraPos;
+    culled = !isBoxInFrustum(frustumPlanes, relativePos);
 }
 
 inline uint8_t Chunk::isOpaque(const int x, const int y, const int z) const {
@@ -55,51 +57,17 @@ constexpr uint32_t packVertice(const unsigned int x, const unsigned int y, const
     return x << 26 | y << 17 | z << 12 | tileIndex << 3 | corner;
 }
 
-
 inline void pushVertex(const MeshData &mesh,
                        const unsigned int x, const  unsigned int y, const unsigned int z,
                        const uint16_t tileIndex, const uint8_t cornerFlipped) {
     mesh.vertices.push_back(packVertice(x, y, z, tileIndex, cornerFlipped));
 }
-inline void pushQuad(const MeshData &mesh,
-                     const unsigned int verts[4][3],
-                     const unsigned int x, const  unsigned int y, const  unsigned int z,
+inline void pushQuad(const MeshData& mesh,
+                     const unsigned int face,
+                     const unsigned int x,
+                     const unsigned int y,
+                     const unsigned int z,
                      const uint16_t tileIndex) {
-
-    const unsigned int startIndex = static_cast<unsigned int>(mesh.vertices.size());
-
-    for (uint8_t i = 0; i < 4; ++i) {
-        uint8_t cornerFlipped;
-        switch (i) {
-            case 0: cornerFlipped = 3; break;
-            case 1: cornerFlipped = 2; break;
-            case 2: cornerFlipped = 1; break;
-            case 3: cornerFlipped = 0; break;
-            default: cornerFlipped = i; break;
-        }
-
-        pushVertex(mesh, verts[i][0] + x, verts[i][1] + y, verts[i][2] + z,
-                   tileIndex, cornerFlipped);
-    }
-
-    for (const auto &tri : Chunk::TRIANGLES) {
-        mesh.indices.push_back(startIndex + tri[0]);
-        mesh.indices.push_back(startIndex + tri[1]);
-        mesh.indices.push_back(startIndex + tri[2]);
-    }
-}
-
-uint16_t Chunk::getTileIndex(const BlockAtlas& atlas, const Block block, const int face) {
-    return static_cast<uint16_t>(atlas.blockAtlasPos
-            .at(BlockUtil::getBlockTexture(block, face)).second * atlasTilesPerRow +
-            atlas.blockAtlasPos
-            .at(BlockUtil::getBlockTexture(block, face)).first);
-}
-
-void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
-    loaded = false;
-    meshData.vertices.clear();
-    meshData.indices.clear();
 
     static constexpr unsigned int FACE_VERTS[6][4] = {
         {3,2,6,7},{1,0,4,5},{0,3,7,4},
@@ -110,19 +78,29 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
         {0,1,0},{1,1,0},{1,1,1},{0,1,1}
     };
 
-    auto addFace = [&](const unsigned int xPos, const unsigned int yPos, const unsigned int zPos,
-                       const int face, const uint16_t tileIndex) {
+    const auto& FACE = FACE_VERTS[face];
 
-        unsigned int verts[4][3];
-        for (int i = 0; i < 4; ++i) {
-            const unsigned int vi = FACE_VERTS[face][i];
-            verts[i][0] = VERTS[vi][0];
-            verts[i][1] = VERTS[vi][1];
-            verts[i][2] = VERTS[vi][2];
-        }
+    const unsigned int *v0 = VERTS[FACE[0]], *v1 = VERTS[FACE[1]], *v2 = VERTS[FACE[2]], *v3 = VERTS[FACE[3]];
 
-        pushQuad(meshData, verts, xPos, yPos, zPos, tileIndex);
-    };
+    pushVertex(mesh, v0[0] + x, v0[1] + y, v0[2] + z, tileIndex, 3);
+    pushVertex(mesh, v1[0] + x, v1[1] + y, v1[2] + z, tileIndex, 2);
+    pushVertex(mesh, v2[0] + x, v2[1] + y, v2[2] + z, tileIndex, 1);
+
+    pushVertex(mesh, v2[0] + x, v2[1] + y, v2[2] + z, tileIndex, 1);
+    pushVertex(mesh, v3[0] + x, v3[1] + y, v3[2] + z, tileIndex, 0);
+    pushVertex(mesh, v0[0] + x, v0[1] + y, v0[2] + z, tileIndex, 3);
+}
+uint16_t Chunk::getTileIndex(const BlockAtlas& atlas, const Block block, const int face) {
+    return static_cast<uint16_t>(atlas.blockAtlasPos
+            .at(BlockUtil::getBlockTexture(block, face)).second * atlasTilesPerRow +
+            atlas.blockAtlasPos
+            .at(BlockUtil::getBlockTexture(block, face)).first);
+}
+
+void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
+    loaded = false;
+    loadingMeshes.fetch_add(1, std::memory_order_relaxed);
+    meshData.vertices.clear();
 
     for (int x = 0; x < CHUNK_SIZE; ++x) {
         for (int y = 0; y < WORLD_HEIGHT; ++y) {
@@ -151,7 +129,7 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
                                 }
 
                                 const glm::ivec3 realPos = pos + offset;
-                                addFace(realPos.x, realPos.y, realPos.z, face, tileIndex);
+                                pushQuad(meshData, face, realPos.x, realPos.y, realPos.z, tileIndex);
                             }
                             pendingFaces.erase(it);
                         }
@@ -159,10 +137,8 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
                     if (block == BLOCK_AIR) continue;
                 }
 
-                const uint16_t id = blockId(block);
-                if (id == blockId(BLOCK_AIR) || id == blockId(BLOCK_WATER)) continue;
+                if (const uint16_t id = blockId(block); id == blockId(BLOCK_AIR) || id == blockId(BLOCK_WATER)) continue;
 
-                // Iterate over block faces
                 for (int f = 0; f < 6; ++f) {
                     int nx = x, ny = y, nz = z;
                     switch(f) {
@@ -196,7 +172,7 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
                         continue;
                     }
 
-                    addFace(x, y, z, f, getTileIndex(blockAtlas.second, block, f));
+                    pushQuad(meshData, f, x, y, z, getTileIndex(blockAtlas.second, block, f));
                 }
             }
         }
@@ -206,7 +182,6 @@ void Chunk::generateMesh(const BlockAtlasData &blockAtlas) const {
 void Chunk::uploadMesh() const {
     if (VAO == 0) glGenVertexArrays(1, &VAO);
     if (VBO == 0) glGenBuffers(1, &VBO);
-    if (EBO == 0) glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
 
@@ -215,14 +190,6 @@ void Chunk::uploadMesh() const {
         GL_ARRAY_BUFFER,
         meshData.vertices.size() * sizeof(uint32_t),
         meshData.vertices.data(),
-        GL_STATIC_DRAW
-    );
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(
-        GL_ELEMENT_ARRAY_BUFFER,
-        meshData.indices.size() * sizeof(unsigned int),
-        meshData.indices.data(),
         GL_STATIC_DRAW
     );
 
@@ -239,6 +206,7 @@ void Chunk::uploadMesh() const {
 
     initBoundary();
     loaded = true;
+    loadingMeshes.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void Chunk::initBoundary() const {
@@ -340,17 +308,16 @@ void Chunk::drawBoundaries(const glm::mat4 &projView) const {
 }
 
 void Chunk::draw(const Shader* blockShader, glm::mat4& model) const {
-    if (meshData.indices.empty()) return;
+    if (meshData.vertices.empty()) return;
 
     blockShader->use();
     blockShader->setMat4("model", glm::value_ptr(model));
 
     glBindVertexArray(VAO);
-    glDrawElements(
+    glDrawArrays(
         GL_TRIANGLES,
-        LONG(meshData.indices.size()),
-        GL_UNSIGNED_INT,
-        nullptr
+        0,
+        static_cast<GLsizei>(meshData.vertices.size())
     );
     glBindVertexArray(0);
 }

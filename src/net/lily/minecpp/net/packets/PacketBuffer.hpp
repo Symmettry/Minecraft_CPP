@@ -20,8 +20,8 @@ struct PacketBuffer {
         return buffer.size();
     }
 
-    void confirm() const {
-        if (offset != buffer.size()) throw std::runtime_error("[PacketBuffer] Expected " + std::to_string(offset) + " bytes, found " + std::to_string(buffer.size()) + " bytes");
+    void confirm(const std::string debug = "") const {
+        if (offset != buffer.size()) throw std::runtime_error("[PacketBuffer] Expected " + std::to_string(offset) + " bytes, found " + std::to_string(buffer.size()) + " bytes - (" + debug + ")");
     }
 
     void require(const std::string& label, const size_t bytes) const {
@@ -197,6 +197,37 @@ struct PacketBuffer {
         std::memcpy(uuid.data(), buffer.data() + offset, 16);
         offset += 16;
         return {uuid};
+    }
+
+    void readBytes(uint8_t* dest, const size_t length) const {
+        require("readBytes", length);
+        std::memcpy(dest, buffer.data() + offset, length);
+        offset += length;
+    }
+
+    void readBlocks(Block* dest, const size_t count) const {
+        const size_t byteCount = count * 2; // each Block is 2 bytes
+        require("readBlocks", byteCount);
+        for (size_t i = 0; i < count; ++i) {
+            dest[i] = buffer[offset] | (buffer[offset + 1] << 8);
+            offset += 2;
+        }
+    }
+
+    void readNibbleArray(uint8_t* dest, const size_t nibbles) const {
+        const size_t byteCount = (nibbles + 1) / 2;
+        require("readNibbleArray", byteCount);
+
+        const uint8_t* src = buffer.data() + offset;
+        size_t i = 0;
+
+        for (; i + 1 < nibbles; i += 2) {
+            dest[i]     = src[i / 2] >> 4;
+            dest[i + 1] = src[i / 2] & 0xF;
+        }
+        if (i < nibbles) dest[i] = src[i / 2] >> 4;
+
+        offset += byteCount;
     }
 
 };

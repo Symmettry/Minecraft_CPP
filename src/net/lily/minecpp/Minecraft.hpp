@@ -1,7 +1,6 @@
 #ifndef MINECRAFTCLIENT_MINECRAFT_HPP
 #define MINECRAFTCLIENT_MINECRAFT_HPP
 
-#include "world/World.hpp"
 #include "entity/player/EntityPlayer.hpp"
 #include "render/Camera.hpp"
 #include "render/Renderer.hpp"
@@ -14,8 +13,11 @@
 #include "render/FontRenderer.hpp"
 #include "util/GameSettings.hpp"
 #include "util/Inputs.hpp"
+#include "util/ThreadPool.hpp"
 
 constexpr int _width = 800, _height = 800;
+
+class World;
 
 struct Minecraft {
 private:
@@ -38,10 +40,11 @@ public:
     mutable bool running = true;
 
     static const Minecraft* getMinecraft();
+    static ThreadPool threadPool;
 
     Shader* textShader;
 
-    explicit Minecraft(const std::string& serverIp = "", uint16_t serverPort = 25565) {
+    explicit Minecraft(const std::string& serverIp = "", const uint16_t serverPort = 25565) {
 
         renderer->init();
 
@@ -101,7 +104,7 @@ public:
                 timer->lastTick = now;
                 runTick();
             } else {
-                // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
             }
         }
     }
@@ -123,7 +126,7 @@ public:
                 frames = 0;
                 lastFpsTime = now;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (frames % 5 == 0) std::this_thread::sleep_for(std::chrono::microseconds(1000));
         }
     }
 

@@ -35,6 +35,9 @@ struct GameSettings {
     bool modelParts[7] = {true};
     bool chunkBoundaries = false;
 
+    void setFOV(float _fov);
+    float getFOV() const { return fov; }
+
     void setRenderDistance(const int amount) const {
         renderDistance = amount;
     }
@@ -55,7 +58,8 @@ private:
     GLFWwindow* window;
     const Minecraft *mc;
 
-    mutable int renderDistance = 16, renderDistanceSqrSize{};
+    mutable int renderDistance = 64, renderDistanceSqrSize{};
+    float fov = 90.0f;
 
     void computeSqrRenderSize() const {
         renderDistanceSqrSize = renderDistance * renderDistance * CHUNK_SIZE * CHUNK_SIZE;

@@ -38,39 +38,22 @@ public:
 
         deserializeChunk(packet.chunk, packet.groundUp, isOverworld, buf);
 
-        buf.confirm();
-
         return packet;
     }
 
     static void deserializeChunk(Chunk& chunk, const bool continuous, const bool skyLightSent, const PacketBuffer& buf) {
         for (int s = 0; s < 16; s++) {
-            auto&[data, blockLight, skyLight, isSkipped] = chunk.sections[s];
+            auto& [data, blockLight, skyLight, isSkipped] = chunk.sections[s];
             isSkipped = !(chunk.bitMask & 1 << s);
             if (isSkipped) continue;
 
-            for (int b = 0; b < 4096; b++)
-                data[b] = buf.readBlock();
+            buf.readBlocks(data, 4096);
+            buf.readNibbleArray(blockLight, 4096);
 
-            for (int l = 0; l < 2048; l++) {
-                const uint8_t light = buf.readByte();
-                blockLight[l * 2] = light >> 4;
-                blockLight[l * 2 + 1] = light & 0x0F;
-            }
-
-            if (skyLightSent) {
-                for (int l = 0; l < 2048; l++) {
-                    const uint8_t light = buf.readByte();
-                    skyLight[l * 2] = light >> 4;
-                    skyLight[l * 2 + 1] = light & 0x0F;
-                }
-            }
+            if (skyLightSent) buf.readNibbleArray(skyLight, 4096);
         }
 
-        if (continuous) {
-            for (int c = 0; c < 256; c++)
-                chunk.biomes[c] = buf.readByte();
-        }
+        if (continuous) buf.readBytes(chunk.biomes, 256);
     }
 
 };

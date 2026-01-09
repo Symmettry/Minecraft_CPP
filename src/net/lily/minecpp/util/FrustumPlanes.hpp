@@ -7,8 +7,9 @@ struct Plane {
     mutable float distance; // d in plane equation
 };
 
-inline std::array<Plane, 6> extractFrustumPlanes(const glm::mat4& m) {
-    std::array<Plane, 6> planes;
+using FrustumInfo = std::array<Plane, 6>;
+
+inline void extractFrustumPlanes(FrustumInfo& planes, const glm::mat4& m) {
 
     // Left
     planes[0].normal.x = m[0][3] + m[0][0];
@@ -51,19 +52,15 @@ inline std::array<Plane, 6> extractFrustumPlanes(const glm::mat4& m) {
         normal /= len;
         distance /= len;
     }
-
-    return planes;
 }
 
-inline bool isBoxInFrustum(const std::array<Plane, 6>& planes, const AABB& box) {
-    for (const auto&[normal, distance] : planes) {
-        glm::vec3 positiveVertex = {box.minX, box.minY, box.minZ};
+inline bool isBoxInFrustum(const FrustumInfo& frustum, const glm::vec3& relPos) {
+    for (const auto& [n, d] : frustum) {
+        const float px = relPos.x + (n.x >= 0 ? CHUNK_SIZE : 0.0f);
+        const float py = relPos.y + (n.y >= 0 ? WORLD_HEIGHT : 0.0f);
+        const float pz = relPos.z + (n.z >= 0 ? CHUNK_SIZE : 0.0f);
 
-        if (normal.x >= 0) positiveVertex.x = box.maxX;
-        if (normal.y >= 0) positiveVertex.y = box.maxY;
-        if (normal.z >= 0) positiveVertex.z = box.maxZ;
-
-        if (glm::dot(normal, positiveVertex) + distance < 0.0f)
+        if (n.x * px + n.y * py + n.z * pz + d < 0.0f)
             return false;
     }
     return true;

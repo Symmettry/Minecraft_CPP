@@ -18,11 +18,15 @@ void EntityPlayer::update() {
     lastPos = position;
     lastRot = rotation;
 
+    movedLastTick = false;
+
     handleMouseLook();
     handleKeyboardInput();
     handleSprintToggle();
 
     onLivingUpdate();
+
+    movedLastTick = lastPos != position;
 
     if (sneaking != serverSneakState) {
         if (sneaking) {} // send c0b sneak
@@ -76,7 +80,7 @@ void EntityPlayer::update() {
     }
 }
 
-void EntityPlayer::moveEntityWithHeading(float strafe, float forward) {
+void EntityPlayer::moveEntityWithHeading(const float strafe, const float forward) {
     //todo
     // const glm::vec3 prevPos = position;
 
@@ -96,9 +100,16 @@ void EntityPlayer::moveEntityWithHeading(float strafe, float forward) {
     // addMovementStat(position.x - prevPos.x, position.y - prevPos.y, position.z - prevPos.z);
 }
 
-void EntityPlayer::handleMouseLook() {
+void EntityPlayer::handleMouseLook() const {
     const float rawDX = mc->input->getMouseDeltaX();
     const float rawDY = mc->input->getMouseDeltaY();
+
+    if (rawDX == 0.0f && rawDY == 0.0f) {
+        mc->renderer->shouldCalcView = false;
+        return;
+    }
+
+    mc->renderer->shouldCalcView = true;
 
     const float sens = mc->settings->mouseSensitivity.value;
     const float f = sens * 0.6f + 0.2f;

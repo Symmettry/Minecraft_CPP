@@ -16,6 +16,7 @@ public:
     const Minecraft* mc = nullptr;
 
     int entityId = 0;
+    bool movedLastTick = false;
 
     explicit Entity(const Minecraft* mc, double x, double y, double z);
     virtual ~Entity() = default;

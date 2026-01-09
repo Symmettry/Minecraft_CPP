@@ -61,12 +61,16 @@ struct GameType {
 
 class World {
 public:
+    const Minecraft* mc;
+
     mutable std::unordered_map<ChunkCoord, std::shared_ptr<Chunk>, ChunkCoordHash> chunks;
     mutable std::vector<std::shared_ptr<Entity>> entities;
 
     mutable std::unordered_map<ChunkCoord, std::vector<std::pair<glm::ivec3, uint16_t>>, ChunkCoordHash> pendingFace4Chunks;
 
     mutable uint64_t totalTime, worldTime;
+
+    explicit World(const Minecraft* mc) : mc(mc), totalTime(0), worldTime(0) { }
 
     void update() const;
 

@@ -17,7 +17,7 @@ public:
 
     virtual ~NetHandler() = default;
 
-    virtual void handlePacket(const ClientBoundPacket& packet) = 0;
+    virtual bool handlePacket(const ClientBoundPacket& packet) = 0;
     virtual void tick() {}
     [[nodiscard]] virtual const char* getName() const { return "NetHandler"; }
 

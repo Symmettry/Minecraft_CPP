@@ -13,3 +13,8 @@ void GameSettings::sendSettingsToServer() const {
 
     mc->netClient->sendPacket(C15PacketClientSettings{language, renderDistance, EnumChatVisibility::fromId(chatVisibility), chatColors, i});
 }
+
+void GameSettings::setFOV(const float _fov) {
+    fov = _fov;
+    mc->renderer->updateProjection(_fov);
+}

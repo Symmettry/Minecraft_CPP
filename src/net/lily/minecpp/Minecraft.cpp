@@ -8,6 +8,8 @@
 const static Minecraft* MineInst;
 static GuiIngame* ingameGui;
 
+ThreadPool Minecraft::threadPool(std::thread::hardware_concurrency());
+
 const Minecraft* Minecraft::getMinecraft() {
     return MineInst;
 }

@@ -60,6 +60,8 @@ void Renderer::init() {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     blockShader = new Shader("assets/shaders/basic.vert", "assets/shaders/basic.frag");
 
@@ -107,7 +109,7 @@ void Renderer::init() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    updateProjection(fbWidth, fbHeight);
+    updateProjection(fbWidth, fbHeight, 90.0f);
 
     constexpr int atlasSize = atlasTilesPerRow * atlasTileSize;
     glGenTextures(1, &blockAtlasTexture);
@@ -119,26 +121,60 @@ void Renderer::init() {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     Chunk::boundShader = std::make_unique<Shader>("assets/shaders/boundary.vert", "assets/shaders/boundary.frag");
+
+    blockShader->use();
+    blockShader->setInt("texture1", 0);
 }
 
 void Renderer::processInput() const {
-    // if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    //     glfwSetWindowShouldClose(window, true);
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    static bool f9pressed = false;
+    if (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS) {
+        if (!f9pressed) {
+            f9pressed = true;
+            freezeFrustum = !freezeFrustum;
+        }
+    } else f9pressed = false;
 }
 
 bool Renderer::shouldClose() const {
-    return glfwWindowShouldClose(window);
+    return glfwWindowShouldClose(window);;
 }
 
-void Renderer::updateProjection(const int fbWidth, const int fbHeight) const {
+void Renderer::updateProjection(const int fbWidth, const int fbHeight, const float fov) const {
     const float aspect = static_cast<float>(fbWidth) / static_cast<float>(fbHeight);
-    const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
+    projection = glm::perspective(glm::radians(fov), aspect, 0.1f, 1000.0f);
 
     blockShader->use();
     blockShader->setMat4("projection", glm::value_ptr(projection));
 
     width = fbWidth;
     height = fbHeight;
+
+    updateFrustums();
+}
+void Renderer::updateVisibleChunks() const {
+    if (freezeFrustum) return;
+
+    for (const auto &chunk: mc->world->chunks | std::views::values) {
+        chunk->testCull(frustumPlanes, cameraPos);
+    }
+}
+
+void Renderer::updateProjection(const int fbWidth, const int fbHeight) const {
+    updateProjection(fbWidth, fbHeight, mc->settings->getFOV());
+}
+
+void Renderer::updateProjection(const float fov) const {
+    updateProjection(width, height, fov);
+}
+
+void Renderer::updateFrustums() const {
+    projView = projection * view;
+    extractFrustumPlanes(frustumPlanes, projView);
+    if (mc->world) updateVisibleChunks();
 }
 
 unsigned int Renderer::loadTexture(const char* path) {
@@ -177,27 +213,12 @@ unsigned int Renderer::loadTexture(const char* path) {
     return textureID;
 }
 
-void Renderer::render(const World* world) const {
-    processInput();
+void Renderer::calculateView(const float pt) const {
+    if (!shouldCalcView) return;
 
-    glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    blockShader->use();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
-    blockShader->setInt("texture1", 0);
-
-    const float partialTicks = mc->timer->partialTicks;
-
-    const glm::vec3 cameraPos(
-        camera->getX(partialTicks),
-        camera->getY(partialTicks),
-        camera->getZ(partialTicks)
-    );
-
-    const float yaw   = glm::radians(std::fmod(camera->getRotY(partialTicks) + 90, 360));
-    const float pitch = glm::radians(std::clamp<float>(-camera->getRotX(partialTicks), -89.99f, 89.99f));
+    const float ry = camera->getRotY(pt) + 90, rx = -camera->getRotX(pt);
+    const float yaw   = glm::radians(std::fmod(ry, 360));
+    const float pitch = glm::radians(std::clamp<float>(rx, -89.99f, 89.99f));
 
     glm::vec3 front;
     front.x = std::cos(yaw) * std::cos(pitch);
@@ -206,14 +227,33 @@ void Renderer::render(const World* world) const {
     front = glm::normalize(front);
 
     constexpr glm::vec3 up(0.0f, 1.0f, 0.0f);
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f), front, up);
+    view = glm::lookAt(glm::vec3(0.0f), front, up);
+
+    updateFrustums();
+
     blockShader->setMat4("view", glm::value_ptr(view));
+}
 
-    const float aspect = static_cast<float>(width) / static_cast<float>(height);
-    const glm::mat4 projection = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
-    const glm::mat4 projView = projection * view;
+void Renderer::render(const World* world) const {
+    if (mc->player->movedLastTick) updateFrustums();
 
-    const auto frustumPlanes = extractFrustumPlanes(freezeFrustum ? frozenProjView : projView);
+    processInput();
+
+    glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, blockAtlasTexture);
+
+    blockShader->use();
+
+    const float pt = mc->timer->partialTicks;
+
+    cameraPos.x = camera->getX(pt);
+    cameraPos.y = camera->getY(pt);
+    cameraPos.z = camera->getZ(pt);
+
+    calculateView(pt);
 
     std::vector<ChunkCoord> toRemove;
     for (auto& [pos, chunk] : world->chunks) {
@@ -225,11 +265,10 @@ void Renderer::render(const World* world) const {
         world->chunks.erase(pos);
 
     for (const auto &[pos, chunk]: world->chunks) {
-        if (!chunk->loaded) continue;
+        if (!chunk->loaded || chunk->culled) continue;
 
         glm::vec3 worldPos(pos.x * CHUNK_SIZE, 0, pos.z * CHUNK_SIZE);
         glm::vec3 relativePos = worldPos - cameraPos;
-    if (!isBoxInFrustum(frustumPlanes, AABB{relativePos, relativePos + glm::vec3(CHUNK_SIZE, WORLD_HEIGHT, CHUNK_SIZE)})) continue;
 
         glm::mat4 model = glm::translate(glm::mat4(1.0f), relativePos);
 

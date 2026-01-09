@@ -1,0 +1,5 @@
+TODO:
+
+- The pending faces must be excluded from generateMesh() and put in its own threaded thing that will be called after all the generated meshes in S26
+
+- Multithread renderer

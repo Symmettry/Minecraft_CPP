@@ -12,7 +12,7 @@
 #include "server/S02PacketLoginSuccess.hpp"
 #include "server/S03PacketEnableCompression.hpp"
 
-class NetHandlerLogin : public NetHandler {
+class NetHandlerLogin final : public NetHandler {
 public:
     std::string username;
     std::string uuid;
@@ -22,26 +22,25 @@ public:
     explicit NetHandlerLogin(NetClient* client, const std::string& username, Minecraft* mc)
         : NetHandler(client, mc), username(username) { }
 
-    void handlePacket(const ClientBoundPacket& packet) override {
-        // std::cout << "[Login] Packet ID: " << packet.id << ", length: " << packet.data.size() << "\n";
+    bool handlePacket(const ClientBoundPacket& packet) override {
         switch (packet.id) {
             case 0x00: { // Disconnect
                 const auto p = S00PacketDisconnect::deserialize(packet.buf);
-                // std::cout << "[Login] Disconnected: " << p.reason << "\n";
+                std::cout << "[NetHandlerLogin] Disconnected: " << p.reason << "\n";
                 break;
             }
             case 0x01: { // Encryption request
                 const auto p = S01PacketEncryptionRequest::deserialize(packet.buf);
                 serverPublicKey = p.publicKeyEncoded;
                 verifyToken = p.verifyToken;
-                // std::cout << "[Login] Received encryption request, serverId: " << p.hashedServerId << "\n";
+                std::cout << "[NetHandlerLogin] Received encryption request, serverId: " << p.hashedServerId << "\n";
                 break;
             }
             case 0x02: { // Login success
                 const auto p = S02PacketLoginSuccess::deserialize(packet.buf);
                 uuid = p.uuid;
                 username = p.username;
-                // std::cout << "[Login] Login success! UUID: " << uuid << ", Username: " << username << "\n";
+                std::cout << "[NetHandlerLogin] Login success! UUID: " << uuid << ", Username: " << username << "\n";
                 const auto playHandler = std::make_shared<NetHandlerPlay>(client, uuid, username, mc);
                 client->setHandler(playHandler);
                 break;
@@ -49,13 +48,14 @@ public:
             case 0x03: { // Enable compression
                 const auto p = S03PacketEnableCompression::deserialize(packet.buf);
                 client->stream_.setCompression(p.compressionThreshold);
-                std::cout << "[Login] Enable compression: " << p.compressionThreshold << "\n";
+                std::cout << "[NetHandlerLogin] Enable compression: " << p.compressionThreshold << "\n";
                 break;
             }
             default:
-                // std::cout << "[Login] Unknown packet ID: 0x" << std::hex << packet.id << "\n";
-                break;
+                std::cout << "[NetHandlerLogin] Unknown packet ID: S" << Math::toHexString(packet.id) << "\n";
+                return false;
         }
+        return true;
     }
 
     [[nodiscard]] const char* getName() const override { return "NetHandlerLogin"; }

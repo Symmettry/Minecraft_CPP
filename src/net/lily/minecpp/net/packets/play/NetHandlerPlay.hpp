@@ -14,6 +14,7 @@
 #include "net/lily/minecpp/net/NetHandler.hpp"
 #include "net/lily/minecpp/net/NetClient.hpp"
 #include "net/lily/minecpp/util/ChatHistory.hpp"
+#include "net/lily/minecpp/util/DebugTimer.hpp"
 #include "net/lily/minecpp/util/Math.hpp"
 #include "net/lily/minecpp/world/WorldClient.hpp"
 #include "server/S00PacketKeepAlive.hpp"
@@ -57,7 +58,7 @@ public:
                 continue;
             }
 
-            const int baseY = sectionY * 16;
+            const int baseY = sectionY * 16+16;
 
             for (int y = 0; y < 16; ++y) {
                 const int worldY = baseY + y;
@@ -81,6 +82,7 @@ public:
     }
 
     void handleJoinGame(const S01PacketJoinGame& packet) const {
+        printf("a\n");
         mc->world = new WorldClient(this, WorldSettings{ 0L, packet.gameType, false, packet.hardcoreMode, packet.worldType }, packet.dimension, packet.difficulty);
         mc->world->entities.push_back(mc->player);
 
@@ -159,16 +161,19 @@ public:
     }
 
     void handleChunkData(const S21PacketChunkData& packet) const {
+        DebugTimer{"S21 Chunks x1"};
         processChunk(packet.chunkX, packet.chunkZ, packet.chunk);
     }
 
-    void handleMapChunkBulk(const S26PacketMapChunkBulk& bulk) const {
+    void handleMapChunkBulk(const DebugTimer &timer, const S26PacketMapChunkBulk& bulk) const {
+        timer.rename("S26 Chunks x" + std::to_string(bulk.getChunkCount()));
+        timer.divisor = bulk.getChunkCount();
         for (uint32_t i = 0; i < bulk.getChunkCount(); ++i) {
             processChunk(bulk.getChunkX(i), bulk.getChunkZ(i), bulk.getChunkData(i));
         }
     }
 
-    void handlePacket(const ClientBoundPacket& packet) override {
+    bool handlePacket(const ClientBoundPacket& packet) override {
         // printf("[NetHandlerPlay] Handling packet S%s\n", Math::toHexString(packet.id, true).c_str());
         switch (packet.id) {
             case 0x00: handleKeepAlive(S00PacketKeepAlive::deserialize(packet.buf)); break;
@@ -185,14 +190,15 @@ public:
             //<...>
             case 0x20: handleEntityProperties(S20PacketEntityProperties::deserialize(packet.buf)); break;
             case 0x21: handleChunkData(S21PacketChunkData::deserialize(packet.buf, true)); break; // todo dimension check
-            //<...>
-            case 0x26: handleMapChunkBulk(S26PacketMapChunkBulk::deserialize(packet.buf)); break;
+            //<...>o
+            case 0x26: handleMapChunkBulk(DebugTimer{}, S26PacketMapChunkBulk::deserialize(packet.buf)); break;
             //<...>
             default: {
-                printf("Unhandled packet: %s\n", Math::toHexString(packet.id).c_str());
-                break;
+                // printf("Unhandled packet: S%s\n", Math::toHexString(packet.id).c_str());
+                return false;
             }
         }
+        return true;
     }
 
     void tick() override {

@@ -33,8 +33,6 @@ public:
             S21PacketChunkData::deserializeChunk(packet.chunksData[i], true, packet.skyLightSent, buf);
         }
 
-        buf.confirm();
-
         return packet;
     }
 

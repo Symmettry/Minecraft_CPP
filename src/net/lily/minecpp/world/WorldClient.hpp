@@ -14,11 +14,7 @@ class WorldClient : public World {
 
 public:
 
-    WorldClient(const NetHandlerPlay* netHandler, const WorldSettings settings, const int dimension, const EnumDifficulty::Value difficulty)
-        : sendQueue(netHandler) {
-
-        // todo
-    }
+    WorldClient(const NetHandlerPlay* netHandler, const WorldSettings settings, const int dimension, const EnumDifficulty::Value difficulty);
 
 };
 

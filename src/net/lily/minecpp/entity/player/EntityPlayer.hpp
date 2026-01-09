@@ -6,7 +6,7 @@
 
 #include "../Entity.hpp"
 
-class EntityPlayer : public Entity {
+class EntityPlayer final : public Entity {
 public:
 
     mutable float experience = 0.0f;
@@ -27,7 +27,7 @@ public:
 
     void moveEntityWithHeading(float strafe, float forward) override;
 
-    void handleMouseLook();
+    void handleMouseLook() const;
     void handleSprintToggle();
     void handleKeyboardInput();
 

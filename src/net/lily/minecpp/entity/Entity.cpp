@@ -20,7 +20,9 @@ double Entity::getLastEyePos() const {
 void Entity::update() {
     lastPos = position;
     lastRot = rotation;
+    movedLastTick = false;
     onLivingUpdate();
+    movedLastTick = lastPos != position;
 }
 
 void Entity::jump() {

@@ -4,6 +4,8 @@
 #include <vector>
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
+#include <atomic>
+#include <cstring>
 #include <glm/gtx/hash.hpp>
 #include <glad/glad.hpp>
 
@@ -22,7 +24,6 @@ using Vertex = uint32_t;
 
 struct MeshData {
     mutable std::vector<Vertex> vertices;
-    mutable std::vector<unsigned int> indices;
 };
 
 using PendingFace = uint16_t;
@@ -33,10 +34,17 @@ struct ivec3Hash {
     }
 };
 
+struct Minecraft;
+struct Plane;
+
 class Chunk : public std::enable_shared_from_this<Chunk> {
 public:
     const World* world;
-    const AABB aabb;
+    const Minecraft* mc;
+
+    static std::atomic<int> loadingMeshes;
+
+    mutable bool culled = false;
 
     static constexpr unsigned int TRIANGLES[2][3] = {
         {0,1,2}, {2,3,0}
@@ -47,14 +55,11 @@ public:
     ~Chunk();
 
     void clearSection(const int sy) {
-        for (int y=sy*16;y<sy*16+16;y++) {
-            for (int x=0;x<CHUNK_SIZE;x++) {
-                for (int z=0;z<CHUNK_SIZE;z++) {
-                    setBlock(x, y, z, BLOCK_AIR);
-                }
-            }
-        }
+        constexpr int SECTION_VOLUME = 16 * 16 * 16;
+        std::memset(blocks.data() + sy * SECTION_VOLUME, 0, SECTION_VOLUME * sizeof(uint16_t));
     }
+
+    void testCull(const std::array<Plane, 6> &frustumPlanes, glm::vec3 cameraPos) const;
 
     mutable std::unordered_map<glm::ivec3, std::vector<PendingFace>, ivec3Hash> pendingFaces;
 
@@ -94,6 +99,7 @@ public:
     }
 
     const int chunkX, chunkZ;
+    const glm::vec3 worldPos;
 
     mutable bool loaded = false;
 
@@ -101,7 +107,8 @@ private:
     std::array<Block, CHUNK_SIZE * CHUNK_SIZE * WORLD_HEIGHT> blocks{};
     mutable MeshData meshData;
 
-    mutable GLuint VAO = 0, VBO = 0, EBO = 0;
+    mutable GLsizeiptr vboCapacity = 0;
+    mutable GLuint VAO = 0, VBO = 0;
     mutable GLuint boundaryVAO = 0, boundaryVBO = 0;
 
     mutable int boundaryVertexCount{};
