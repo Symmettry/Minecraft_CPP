@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "../../Packet.hpp"
+#include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 
 class S03PacketEnableCompression final : public ClientBoundPacket {
 public:

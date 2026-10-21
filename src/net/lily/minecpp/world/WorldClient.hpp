@@ -1,5 +1,5 @@
 //
-// Created by lily on 12/28/25.
+// created by lily on 12/28/25
 //
 
 #ifndef MINECRAFTCLIENT_WORLDCLIENT_HPP
@@ -19,4 +19,4 @@ public:
 };
 
 
-#endif //MINECRAFTCLIENT_WORLDCLIENT_HPP
+#endif //mINECRAFTCLIENT_WORLDCLIENT_HPP

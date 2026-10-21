@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 
 class S02PacketLoginSuccess final : public ClientBoundPacket {
 public:

@@ -1,17 +1,20 @@
 #pragma once
 
 #include <vector>
-#include <queue>
+#include <deque>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include <atomic>
+#include <tracy/Tracy.hpp>
 
 class ThreadPool {
 public:
-    explicit ThreadPool(const size_t numThreads) : stop(false) {
+    explicit ThreadPool(const size_t numThreads, const char* threadName = "Worker") : stop(false) {
         for (size_t i = 0; i < numThreads; ++i) {
-            workers.emplace_back([this] {
+            workers.emplace_back([this, threadName] {
+                tracy::SetThreadName(threadName);
                 while (true) {
                     std::function<void()> job;
 
@@ -23,10 +26,15 @@ public:
                             return;
 
                         job = std::move(jobs.front());
-                        jobs.pop();
+                        jobs.pop_front();
+                        activeJobs.fetch_add(1, std::memory_order_relaxed);
                     }
 
-                    job();
+                    {
+                        ZoneScopedN("Worker job");
+                        job();
+                        activeJobs.fetch_sub(1, std::memory_order_relaxed);
+                    }
                 }
             });
         }
@@ -43,19 +51,29 @@ public:
         }
     }
 
-    void enqueue(std::function<void()> job) {
+    // priority jobs run before everything already queued
+    void enqueue(std::function<void()> job, const bool priority = false) {
         {
             std::unique_lock lock(queueMutex);
-            jobs.push(std::move(job));
+            if (priority) jobs.push_front(std::move(job));
+            else jobs.push_back(std::move(job));
         }
         condition.notify_one();
     }
 
+    [[nodiscard]] size_t threadCount() const { return workers.size(); }
+    [[nodiscard]] size_t activeJobCount() const { return activeJobs.load(std::memory_order_relaxed); }
+    [[nodiscard]] size_t pendingJobCount() const {
+        std::lock_guard lock(queueMutex);
+        return jobs.size();
+    }
+
 private:
     std::vector<std::thread> workers;
-    std::queue<std::function<void()>> jobs;
+    std::deque<std::function<void()>> jobs;
 
-    std::mutex queueMutex;
+    mutable std::mutex queueMutex;
     std::condition_variable condition;
+    std::atomic_size_t activeJobs{0};
     bool stop;
 };

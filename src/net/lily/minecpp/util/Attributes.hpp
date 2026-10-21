@@ -1,5 +1,5 @@
 //
-// Created by lily on 12/28/25.
+// created by lily on 12/28/25
 //
 
 #ifndef MINECRAFTCLIENT_ATTRIBUTES_HPP
@@ -9,9 +9,9 @@
 #include "Math.hpp"
 
 struct AttributeModifier {
-    UUID uuid; // 128-bit UUID
+    bUUID uuid; // 128-bit UUID
     double amount;
     uint8_t operation;
 };
 
-#endif //MINECRAFTCLIENT_ATTRIBUTES_HPP
+#endif //mINECRAFTCLIENT_ATTRIBUTES_HPP

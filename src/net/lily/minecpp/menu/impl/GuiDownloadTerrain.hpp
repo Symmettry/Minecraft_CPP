@@ -1,5 +1,5 @@
 //
-// Created by lily on 12/28/25.
+// created by lily on 12/28/25
 //
 
 #ifndef MINECRAFTCLIENT_GUIDOWNLOADTERRAIN_HPP
@@ -47,4 +47,4 @@ public:
 };
 
 
-#endif //MINECRAFTCLIENT_GUIDOWNLOADTERRAIN_HPP
+#endif //mINECRAFTCLIENT_GUIDOWNLOADTERRAIN_HPP

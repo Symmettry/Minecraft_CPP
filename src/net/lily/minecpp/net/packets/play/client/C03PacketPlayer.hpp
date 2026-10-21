@@ -12,7 +12,7 @@ public:
         : ServerBoundPacket(0x03), onGround(isOnGround) {}
 
     PacketBuffer serialize() const override {
-        // C03 only sends onGround
+        // c03 only sends onGround
         buf.writeBool(onGround);
         return buf;
     }
@@ -78,4 +78,4 @@ public:
     }
 };
 
-#endif // MINECRAFTCLIENT_C03PACKETPLAYER_HPP
+#endif // mINECRAFTCLIENT_C03PACKETPLAYER_HPP

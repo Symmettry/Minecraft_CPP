@@ -1,5 +1,5 @@
 //
-// Created by lily on 12/27/25.
+// created by lily on 12/27/25
 //
 
 #ifndef MINECRAFTCLIENT_NETHANDLER_HPP
@@ -26,4 +26,4 @@ public:
 };
 
 
-#endif //MINECRAFTCLIENT_NETHANDLER_HPP
+#endif //mINECRAFTCLIENT_NETHANDLER_HPP

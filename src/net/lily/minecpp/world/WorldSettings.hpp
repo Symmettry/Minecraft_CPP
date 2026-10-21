@@ -1,5 +1,5 @@
 //
-// Created by lily on 12/28/25.
+// created by lily on 12/28/25
 //
 
 #ifndef MINECRAFTCLIENT_WORLDSETTINGS_HPP
@@ -28,4 +28,4 @@ struct WorldSettings {
 
 };
 
-#endif //MINECRAFTCLIENT_WORLDSETTINGS_HPP
+#endif //mINECRAFTCLIENT_WORLDSETTINGS_HPP

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 
 class S01PacketEncryptionRequest final : public ClientBoundPacket {
 public:

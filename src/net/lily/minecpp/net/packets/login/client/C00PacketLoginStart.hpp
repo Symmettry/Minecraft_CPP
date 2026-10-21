@@ -1,5 +1,5 @@
 //
-// Created by lily on 12/27/25.
+// created by lily on 12/27/25
 //
 
 #ifndef MINECRAFTCLIENT_C00PACKETLOGINSTART_HPP
@@ -20,4 +20,4 @@ public:
 };
 
 
-#endif //MINECRAFTCLIENT_C00PACKETLOGINSTART_HPP
+#endif //mINECRAFTCLIENT_C00PACKETLOGINSTART_HPP

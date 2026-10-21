@@ -2,4 +2,4 @@
 
 const char* BlockUtil::textureIds[400];
 const char* BlockUtil::fallbackTexture;
-uint16_t    BlockUtil::blockTextures[3152*6];
+uint16_t    BlockUtil::blockTextures[BlockUtil::BLOCK_STATE_COUNT * 6];

@@ -27,6 +27,10 @@ struct AABB {
         };
     }
 
+    [[nodiscard]] AABB contract(const double x, const double y, const double z) const {
+        return {minX + x, minY + y, minZ + z, maxX - x, maxY - y, maxZ - z};
+    }
+
     [[nodiscard]] bool intersects(const AABB &other) const {
         return maxX > other.minX && minX < other.maxX &&
                maxY > other.minY && minY < other.maxY &&

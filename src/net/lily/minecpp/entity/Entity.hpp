@@ -2,9 +2,14 @@
 #ifndef ENTITY_HPP
 #define ENTITY_HPP
 
+#define AS(T) static_cast<T>(this)
+#define ASP(T) static_cast<const T*>(this)
+
 #include <memory>
 #include <glm/glm.hpp>
 #include <algorithm>
+
+#include "EntityType.hpp"
 #include "net/lily/minecpp/util/AABB.hpp"
 #include "net/lily/minecpp/util/Rotation.hpp"
 #include "../world/chunk/Block.hpp"
@@ -16,6 +21,7 @@ public:
     const Minecraft* mc = nullptr;
 
     int entityId = 0;
+    glm::ivec3 serverPosition{};
     bool movedLastTick = false;
 
     explicit Entity(const Minecraft* mc, double x, double y, double z);
@@ -32,7 +38,8 @@ public:
     void resetPositionToBB() const;
 
     void jump();
-    void onLivingUpdate();
+
+    virtual void onLivingUpdate();
 
     Block getBlockBelow() const;
 
@@ -41,12 +48,17 @@ public:
     void setBoundingBox(const AABB &box) const;
 
     void setPosition(double x, double y, double z) const;
+    void setPositionPreservingPrevious(double x, double y, double z) const;
 
     void setRotation(float yaw, float pitch) const;
 
     void setPositionAndRotation(double x, double y, double z, float yaw, float pitch) const;
 
+    glm::vec<3, double> getPosEyes(float partialTicks) const;
+
     bool onGround = false, noClip = false, isInWeb = false, isAirBorne = false;
+    bool inWater = false, firstUpdate = true;
+    int fire = 0;
     float fallDistance = 0.0f, jumpMovementFactor = 0.02f, stepHeight = 0.6f;
     float width = 0.6f, height = 1.8f;
 
@@ -70,23 +82,39 @@ public:
     bool sprinting = false;
 
     float health = 10.0f;
+    float lastHealth = 10.0f;
+    float maxHealth = 20.0f;
+    int hurtTime = 0;
+    int maxHurtTime = 0;
+    int hurtResistantTime = 0;
+    float attackedAtYaw = 0.0f;
 
     Entity* ridingEntity{};
+    int vehicleId = -1; // entity this one is riding, -1 when none
+    // follows the vehicle (Entity.updateRidden); returns true while riding
+    bool updateRidden();
+    [[nodiscard]] double ridingYOffset(const Entity& vehicle) const;
 
     [[nodiscard]] virtual float getAIMoveSpeed() const { return 1.0f; }
     [[nodiscard]] virtual double getEyeHeight() const { return 1.62; }
     [[nodiscard]] virtual float jumpHeight() const { return 0.42f; }
 
     [[nodiscard]] virtual bool isOnLadder() const;
-    [[nodiscard]] virtual bool isInLava() const { return false; }
-    [[nodiscard]] virtual bool isInWater() const { return false; }
+    [[nodiscard]] virtual bool isInLava() const;
+    [[nodiscard]] virtual bool isInWater() const;
+    [[nodiscard]] virtual bool isWet() const;
+    [[nodiscard]] virtual bool isPushedByWater() const { return true; }
+
+    bool handleWaterMovement();
+    virtual void resetHeight();
+    [[nodiscard]] bool isOffsetPositionInLiquid(double x, double y, double z) const;
 
     [[nodiscard]] bool isCurrentViewEntity() const;
 
-    void setSneaking(bool sneak) { sneaking = sneak; }
+    void setSneaking(const bool sneak) { sneaking = sneak; }
     bool isSneaking() const { return sneaking; }
 
-    void setSprinting(bool sprint) { sprinting = sprint; }
+    virtual void setSprinting(const bool sprint) { sprinting = sprint; }
     bool isSprinting() const { return sprinting; }
 
     std::string coordinates() const {
@@ -95,6 +123,12 @@ public:
     std::string rotations() const {
         return "Yaw: " + std::to_string(rotation.yaw) + ", Pitch: " + std::to_string(rotation.pitch);
     }
+
+    virtual EntityType getType() const {
+        return UNKNOWN;
+    }
+
+    void getMouseOver(float partialTicks) const;
 
 protected:
     mutable AABB boundingBox{};

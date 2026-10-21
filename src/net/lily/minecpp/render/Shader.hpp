@@ -5,10 +5,12 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <unordered_map>
 
 class Shader {
 public:
     unsigned int ID;
+    inline static unsigned int activeProgram = 0;
 
     Shader(const std::string& vertexPath, const std::string& fragmentPath) {
         std::string vertexCode, fragmentCode;
@@ -48,23 +50,62 @@ public:
     }
 
     void use() const {
+        if (activeProgram == ID) return;
         glUseProgram(ID);
+        activeProgram = ID;
     }
-    static void stop() { glUseProgram(0); }
+    static void stop() {
+        if (activeProgram == 0) return;
+        glUseProgram(0);
+        activeProgram = 0;
+    }
 
     void setMat4(const std::string &name, const float* mat) const {
-        glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, mat);
+        glUniformMatrix4fv(location(name), 1, GL_FALSE, mat);
+    }
+
+    void setMat4Array(const std::string& name, const float* matrices, const int count) const {
+        glUniformMatrix4fv(location(name), count, GL_FALSE, matrices);
     }
 
     void setVec4(const std::string& name, const glm::vec4 vec) const {
-        glUniform4fv(glGetUniformLocation(ID, name.c_str()), 1, &vec[0]);
+        glUniform4fv(location(name), 1, &vec[0]);
+    }
+
+    void setVec2(const std::string& name, const float x, const float y) const {
+        glUniform2f(location(name), x, y);
+    }
+
+    void setVec2Array(const std::string& name, const float* values, const int count) const {
+        glUniform2fv(location(name), count, values);
+    }
+
+    void setVec3(const std::string& name, const glm::vec3& value) const {
+        glUniform3fv(location(name), 1, &value[0]);
+    }
+
+    void setFloat(const std::string& name, const float value) const {
+        glUniform1f(location(name), value);
     }
 
     void setInt(const char * str, const int i) const {
-        glUniform1i(glGetUniformLocation(ID, str), i);
+        glUniform1i(location(str), i);
+    }
+
+    void setBool(const char* name, const bool value) const {
+        glUniform1i(location(name), value ? GL_TRUE : GL_FALSE);
     }
 
 private:
+    mutable std::unordered_map<std::string, GLint> uniformLocations;
+
+    [[nodiscard]] GLint location(const std::string& name) const {
+        if (const auto found = uniformLocations.find(name); found != uniformLocations.end()) return found->second;
+        const GLint value = glGetUniformLocation(ID, name.c_str());
+        uniformLocations.emplace(name, value);
+        return value;
+    }
+
     static void checkCompileErrors(const unsigned int shader, const std::string& type) {
         int success;
         char infoLog[1024];

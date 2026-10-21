@@ -28,7 +28,7 @@ struct DebugTimer {
         if (divisor != 0) {
             std::cout << " (Per: " << duration/divisor << " ms)";
         }
-        std::cout << std::endl;
+        std::cout << '\n';
     }
 
     ~DebugTimer() { end(); }

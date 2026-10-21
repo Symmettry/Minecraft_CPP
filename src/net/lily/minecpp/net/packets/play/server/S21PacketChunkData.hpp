@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <cstdint>
+#include <bit>
 #include <stdexcept>
 #include "net/lily/minecpp/net/packets/ClientBoundPacket.hpp"
 
@@ -33,8 +34,17 @@ public:
         packet.chunkZ = buf.readInt();
 
         packet.groundUp = buf.readBool();
-        packet.chunk.bitMask = buf.readShort();
+        packet.chunk.bitMask = buf.readUShort();
         packet.chunk.size = buf.readVarInt();
+
+        const size_t sectionCount = std::popcount(packet.chunk.bitMask);
+        const size_t expectedSize = sectionCount * (8192 + 2048 + (isOverworld ? 2048 : 0))
+                                  + (packet.groundUp ? 256 : 0);
+        if (packet.chunk.size != expectedSize) {
+            throw std::runtime_error("[S21PacketChunkData] Invalid data size: expected "
+                                     + std::to_string(expectedSize) + ", received "
+                                     + std::to_string(packet.chunk.size));
+        }
 
         deserializeChunk(packet.chunk, packet.groundUp, isOverworld, buf);
 
@@ -42,15 +52,26 @@ public:
     }
 
     static void deserializeChunk(Chunk& chunk, const bool continuous, const bool skyLightSent, const PacketBuffer& buf) {
-        for (int s = 0; s < 16; s++) {
+        for (int s = 0; s < 16; ++s) {
             auto& [data, blockLight, skyLight, isSkipped] = chunk.sections[s];
             isSkipped = !(chunk.bitMask & 1 << s);
             if (isSkipped) continue;
 
             buf.readBlocks(data, 4096);
-            buf.readNibbleArray(blockLight, 4096);
+        }
 
-            if (skyLightSent) buf.readNibbleArray(skyLight, 4096);
+        for (int s = 0; s < 16; ++s) {
+            auto& [data, blockLight, skyLight, isSkipped] = chunk.sections[s];
+            if (isSkipped) continue;
+            buf.readNibbleArray(blockLight, 4096);
+        }
+
+        if (skyLightSent) {
+            for (int s = 0; s < 16; ++s) {
+                auto& [data, blockLight, skyLight, isSkipped] = chunk.sections[s];
+                if (isSkipped) continue;
+                buf.readNibbleArray(skyLight, 4096);
+            }
         }
 
         if (continuous) buf.readBytes(chunk.biomes, 256);

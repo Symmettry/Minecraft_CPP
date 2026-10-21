@@ -26,7 +26,7 @@ public:
         for (uint32_t i = 0; i < count; ++i) {
             packet.xPositions[i] = buf.readInt();
             packet.zPositions[i] = buf.readInt();
-            packet.chunksData[i].bitMask = buf.readShort();
+            packet.chunksData[i].bitMask = buf.readUShort();
         }
 
         for (uint32_t i = 0; i < count; ++i) {

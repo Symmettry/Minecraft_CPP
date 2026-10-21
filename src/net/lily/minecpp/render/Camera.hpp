@@ -17,21 +17,21 @@ struct Camera {
 
     Camera(const float x, const float y, const float z, std::shared_ptr<Entity> entity) : x(x), y(y), z(z), entity(std::move(entity)) { }
 
-    [[nodiscard]] float getX(const float pt) const {
+    [[nodiscard]] double getX(const double pt) const {
         return x + std::lerp(entity->lastPos.x, entity->position.x, pt);
     }
-    [[nodiscard]] float getY(const float pt) const {
+    [[nodiscard]] double getY(const double pt) const {
         return y + std::lerp(entity->getLastEyePos(), entity->getEyePos(), pt);
     }
-    [[nodiscard]] float getZ(const float pt) const {
+    [[nodiscard]] double getZ(const double pt) const {
         return z + std::lerp(entity->lastPos.z, entity->position.z, pt);
     }
 
-    [[nodiscard]] float getRotX(const float pt) const {
+    [[nodiscard]] float getRotX(const double pt) const {
         return std::lerp(entity->lastRot.pitch, entity->rotation.pitch, pt);
     }
-    [[nodiscard]] float getRotY(const float pt) const {
-        return std::lerp(entity->lastRot.yaw, entity->rotation.yaw, pt);
+    [[nodiscard]] float getRotY(const double pt) const {
+        return std::lerp(entity->lastRot.yaw, entity->rotation.yaw, static_cast<float>(pt));
     }
 
     [[nodiscard]] std::shared_ptr<Entity>& getRenderViewEntity() {

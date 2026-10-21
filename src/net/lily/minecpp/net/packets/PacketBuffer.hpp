@@ -63,6 +63,17 @@ struct PacketBuffer {
         }
     }
 
+    void writeULong(const uint64_t value) const {
+        for (int shift = 56; shift >= 0; shift -= 8) writeByte(value >> shift & 0xFFU);
+    }
+
+    void writePosition(const glm::ivec3& position) const {
+        const uint64_t packed = (static_cast<uint64_t>(position.x) & 0x3FFFFFFULL) << 38U
+            | (static_cast<uint64_t>(position.y) & 0xFFFULL) << 26U
+            | (static_cast<uint64_t>(position.z) & 0x3FFFFFFULL);
+        writeULong(packed);
+    }
+
     void writeFloat(const float value) const {
         uint32_t bits;
         std::memcpy(&bits, &value, sizeof(float));
@@ -173,8 +184,8 @@ struct PacketBuffer {
         offset += 4;
         return value;
     }
-    int32_t readShort() const {
-        require("Short", 2);
+    int32_t readUShort() const {
+        require("UShort", 2);
         const int32_t value = (buffer[offset] << 8) | buffer[offset + 1];
         offset += 2;
         return value;
@@ -191,7 +202,7 @@ struct PacketBuffer {
         return buffer[offset++];
     }
 
-    UUID readUUID() const {
+    bUUID readUUID() const {
         require("UUID", 16);
         std::array<uint8_t, 16> uuid{};
         std::memcpy(uuid.data(), buffer.data() + offset, 16);
@@ -222,10 +233,10 @@ struct PacketBuffer {
         size_t i = 0;
 
         for (; i + 1 < nibbles; i += 2) {
-            dest[i]     = src[i / 2] >> 4;
-            dest[i + 1] = src[i / 2] & 0xF;
+            dest[i]     = src[i / 2] & 0xF;
+            dest[i + 1] = src[i / 2] >> 4;
         }
-        if (i < nibbles) dest[i] = src[i / 2] >> 4;
+        if (i < nibbles) dest[i] = src[i / 2] & 0xF;
 
         offset += byteCount;
     }

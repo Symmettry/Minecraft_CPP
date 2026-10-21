@@ -44,25 +44,16 @@ public:
         return buildAtlas(folder, blockNames, false);
     }
 
-    // todo
-    // void saveAtlas(const std::string &folder){
-    //     std::vector<std::string> blockNames;
-    //     std::vector<unsigned char> atlas = buildAtlas(folder, blockNames, true);
+    // todo void saveAtlas(const std::string &folder){ std::vector<std::string> blockNames; std::vector<unsigned char> atlas = buildAtlas(folder, blockNames, true);
     //
-    //     if(!stbi_write_png("assets/blockatlas.png", atlasTilesPerRow * atlasTileSize, atlasTilesPerRow * atlasTileSize, 4, atlas.data(), atlasTilesPerRow * atlasTileSize * 4))
-    //         throw std::runtime_error("Failed to write block atlas PNG");
+    // if(!stbi_write_png("assets/blockatlas.png", atlasTilesPerRow * atlasTileSize, atlasTilesPerRow * atlasTileSize, 4, atlas.data(), atlasTilesPerRow * atlasTileSize * 4)) throw std::runtime_error("Failed to write block atlas PNG");
     //
-    //     std::ofstream datFile("assets/blockatlas.dat.zst");
-    //     if(!datFile.is_open()) throw std::runtime_error("Failed to write block atlas DAT");
+    // std::ofstream datFile("assets/blockatlas.dat.zst"); if(!datFile.is_open()) throw std::runtime_error("Failed to write block atlas DAT");
     //
-    //     for(size_t j = 0; j < blockNames.size(); ++j){
-    //         datFile << blockNames[j];
-    //         if(j != blockNames.size() - 1) datFile << ',';
-    //     }
-    // }
+    // for(size_t j = 0; j < blockNames.size(); ++j){ datFile << blockNames[j]; if(j != blockNames.size() - 1) datFile << ','; } }
 
     static BlockAtlasData loadAtlas(const std::string &pngPath, const std::string &datPath){
-        // Open .zst file
+        // open .zst file
         std::ifstream datFile(datPath, std::ios::binary | std::ios::ate);
         if(!datFile.is_open()) throw std::runtime_error("Failed to open " + datPath);
 
@@ -72,7 +63,7 @@ public:
         datFile.read(compressedData.data(), compressedSize);
         datFile.close();
 
-        // Decompress
+        // decompress
         unsigned long long const decompressedBound = ZSTD_getFrameContentSize(compressedData.data(), compressedSize);
         if(decompressedBound == ZSTD_CONTENTSIZE_ERROR) throw std::runtime_error("Not a valid zstd compressed file");
         if(decompressedBound == ZSTD_CONTENTSIZE_UNKNOWN) throw std::runtime_error("Unknown decompressed size");
@@ -81,13 +72,13 @@ public:
         size_t const dSize = ZSTD_decompress(decompressedData.data(), decompressedBound, compressedData.data(), compressedSize);
         if(ZSTD_isError(dSize)) throw std::runtime_error("ZSTD decompression failed: " + std::string(ZSTD_getErrorName(dSize)));
 
-        // Parse block names
+        // parse block names
         std::vector<std::string> blockNames;
         std::stringstream ss(std::string(decompressedData.begin(), decompressedData.end()));
         std::string block;
         while(std::getline(ss, block, ',')) blockNames.push_back(block);
 
-        // Load PNG atlas
+        // load PNG atlas
         int w, h, n;
         unsigned char* d = stbi_load(pngPath.c_str(), &w, &h, &n, 4);
         if(!d) throw std::runtime_error("Failed to load blockatlas.png");

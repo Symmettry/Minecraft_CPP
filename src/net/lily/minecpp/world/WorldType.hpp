@@ -1,5 +1,5 @@
 //
-// Created by lily on 12/28/25.
+// created by lily on 12/28/25
 //
 
 #ifndef MINECRAFTCLIENT_WORLDTYPE_HPP
@@ -20,14 +20,7 @@ public:
 
     static WorldType* worldTypes[16];
 
-    // these have to all be on their own line.. for some reason
-    static WorldType* DEFAULT;
-    static WorldType* FLAT;
-    static WorldType* LARGE_BIOMES;
-    static WorldType* AMPLIFIED;
-    static WorldType* CUSTOMIZED;
-    static WorldType* DEBUG_WORLD;
-    static WorldType* DEFAULT_1_1;
+    static WorldType *DEFAULT, *FLAT, *LARGE_BIOMES, *AMPLIFIED, *CUSTOMIZED, *DEBUG_WORLD, *DEFAULT_1_1;
 
     const int worldTypeId, generatorVersion;
     const std::string& worldType;
@@ -60,4 +53,4 @@ public:
 
 };
 
-#endif //MINECRAFTCLIENT_WORLDTYPE_HPP
+#endif //mINECRAFTCLIENT_WORLDTYPE_HPP
